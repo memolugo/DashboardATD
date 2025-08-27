@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Sombrilla -->
+  <path d="M32 10 L24 26 L40 26 Z" fill="#BC9B73" stroke="#8B0000" stroke-width="2"></path>
+  
+  <!-- Palo de sombrilla -->
+  <line x1="32" y1="26" x2="32" y2="44" stroke="#A0522D" stroke-width="3"></line>
+  
+  <!-- Olas (azul claro) -->
+  <path d="M10 48 Q14 44 18 48 T26 48 T34 48 T42 48 T50 48 T58 48" fill="none" stroke="#00BFFF" stroke-width="2"></path>
+  <path d="M10 54 Q14 50 18 54 T26 54 T34 54 T42 54 T50 54 T58 54" fill="none" stroke="#00BFFF" stroke-width="2"></path>
+</svg>
