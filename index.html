@@ -1,4 +1,24 @@
-﻿<!DOCTYPE html>
+﻿<!-- ================================================================================================= -->
+<!-- 
+  ESTRUCTURA DE ARCHIVOS RECOMENDADA:
+  Crea una carpeta "pages" y coloca "movilidad.html" dentro. Los demás archivos van fuera.
+
+  tu-proyecto/
+  ├── 📄 index.html
+  ├── 📄 catalogo1.html
+  ├── 📄 catalogo2.html
+  ├── 📄 contacto.html
+  ├── 📄 style.css
+  ├── 📄 script.js
+  └── 📂 pages/
+      └── 📄 movilidad.html
+-->
+
+<!-- ================================================================================================= -->
+<!-- 
+  Archivo: index.html (Esta es tu página de Inicio)
+-->
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -19,7 +39,8 @@
                 <li><a href="index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
                 <li><a href="catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
                 <li><a href="catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
-                <li><a href="movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
+                <!-- RUTA CORREGIDA PARA MOVILIDAD -->
+                <li><a href="pages/movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
                 <li><a href="contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
             </ul>
             <div class="sidebar-footer">
@@ -65,7 +86,7 @@
                 <li><a href="index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
                 <li><a href="catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
                 <li><a href="catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
-                <li><a href="movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
+                <li><a href="pages/movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
                 <li><a href="contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
             </ul>
             <div class="sidebar-footer">
@@ -110,7 +131,7 @@
                 <li><a href="index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
                 <li><a href="catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
                 <li><a href="catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
-                <li><a href="movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
+                <li><a href="pages/movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
                 <li><a href="contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
             </ul>
             <div class="sidebar-footer">
@@ -133,7 +154,7 @@
 
 <!-- ================================================================================================= -->
 <!-- 
-  Archivo: movilidad.html
+  Archivo: pages/movilidad.html  (¡Recuerda crear la carpeta "pages" y poner este archivo dentro!)
 -->
 <!DOCTYPE html>
 <html lang="es">
@@ -141,7 +162,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movilidad - Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- La ruta al CSS necesita "../" para subir un nivel desde la carpeta "pages" -->
+    <link rel="stylesheet" href="../style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
@@ -152,11 +174,13 @@
                 <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo Morelos" class="sidebar-logo">
             </div>
             <ul class="nav-menu">
-                <li><a href="index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
-                <li><a href="catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
-                <li><a href="catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
+                <!-- Las rutas ahora necesitan "../" para subir un nivel y encontrar los otros archivos -->
+                <li><a href="../index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
+                <li><a href="../catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
+                <li><a href="../catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
+                <!-- Esta ruta es relativa a la carpeta "pages", por lo que no necesita "../" -->
                 <li><a href="movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
-                <li><a href="contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
+                <li><a href="../contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
             </ul>
             <div class="sidebar-footer">
                 <p>Gobierno del Estado</p>
@@ -172,7 +196,8 @@
             </div>
         </main>
     </div>
-    <script src="script.js"></script>
+    <!-- La ruta al JS también necesita "../" -->
+    <script src="../script.js"></script>
 </body>
 </html>
 
@@ -201,7 +226,7 @@
                 <li><a href="index.html" class="nav-link"><i class="ph-bold ph-house"></i><span>Inicio</span></a></li>
                 <li><a href="catalogo1.html" class="nav-link"><i class="ph-bold ph-chart-bar"></i><span>Catálogo 1</span></a></li>
                 <li><a href="catalogo2.html" class="nav-link"><i class="ph-bold ph-chart-pie-slice"></i><span>Catálogo 2</span></a></li>
-                <li><a href="movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
+                <li><a href="pages/movilidad.html" class="nav-link"><i class="ph-bold ph-car"></i><span>Movilidad</span></a></li>
                 <li><a href="contacto.html" class="nav-link"><i class="ph-bold ph-envelope-simple"></i><span>Contacto</span></a></li>
             </ul>
             <div class="sidebar-footer">
@@ -384,13 +409,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('.nav-link');
 
     navLinks.forEach(link => {
-        const linkPage = link.getAttribute('href');
+        const linkHref = link.getAttribute('href');
 
-        // Si el href del enlace coincide con la página actual, le añade la clase "active"
-        if (linkPage === currentPage) {
+        // Comprueba si el href del enlace TERMINA con el nombre del archivo de la página actual
+        if (linkHref.endsWith(currentPage)) {
             link.classList.add('active');
         } else {
-            link.classList.remove('active'); // Asegura que los otros no estén activos
+            link.classList.remove('active');
         }
     });
 });
