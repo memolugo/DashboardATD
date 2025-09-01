@@ -1,0 +1,1127 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard de TPBV</title>
+
+  <!-- Tailwind (keep non-deferred to avoid FOUC with CDN runtime) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --brand-green:#71785b;
+      --brand-gold:#bc9b73;
+      --brand-dark-green:#2E3B2B;
+      --brand-light-gray:#F3F4F6;
+      --brand-purple:#773357;
+      --brand-brown:#7C4A36;
+    }
+    html,body{height:100%}
+    body{
+      font-family:'Roboto Condensed',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:#111827;background:var(--brand-light-gray);
+      -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+    }
+    h1,h2,.card-value,.info-value,.gemini-button{font-family:'Montserrat',sans-serif}
+    .container-narrow{max-width:1200px;margin-inline:auto}
+    .card{background:#fff;border:1px solid #E5E7EB;border-radius:.75rem;padding:1rem;box-shadow:0 1px 2px rgb(0 0 0 / .04)}
+    .card-title{font-weight:700;font-size:.7rem;letter-spacing:.06em;color:#6B7280;text-transform:uppercase;margin-bottom:.25rem}
+    .card-value{font-weight:800;font-size:1.8rem;line-height:1.1;color:var(--brand-dark-green)}
+    .section-title{display:flex;align-items:center;gap:.75rem;font-weight:800;color:var(--brand-dark-green);font-size:1.125rem;padding-bottom:.5rem;border-bottom:3px solid var(--brand-gold);margin-bottom:1rem}
+    .info-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.375rem .25rem;border-bottom:1px solid #F3F4F6;font-size:.95rem}
+    .info-row span:first-child{color:#6B7280}
+    .info-row .percentage{color:#4B5563;font-weight:600;font-size:0.9rem}
+    .info-value{color:var(--brand-green);font-weight:800;font-size:1rem;min-width:50px;text-align:right}
+    .gemini-button{background:var(--brand-green);color:#fff;border:none;border-radius:.5rem;font-weight:700;padding:.75rem 1rem;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    #map{width:100%;height:100%;min-height:350px;border-radius:.5rem}
+    .grid-2{display:grid;grid-template-columns:1fr;gap:1rem}
+    @media (min-width:1024px){.grid-2{grid-template-columns:1fr 1fr}}
+    .grid-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+    @media (min-width:640px){.grid-cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+    
+    .localidades-list { max-height: 250px; overflow-y: auto; padding-right: 8px; }
+    .localidades-list li button { width: 100%; text-align: left; padding: 6px; border-radius: 4px; transition: background-color 0.2s; }
+    .localidades-list li button:hover { background-color: #f9fafb; }
+    .localidades-list li button.active { background-color: var(--brand-gold); color: white; font-weight: bold; }
+    
+    /* --- PRINT STYLES --- */
+    @media print{
+      @page{size:letter;margin:1.5cm}
+      body {
+        background-color: white !important;
+        font-family: Arial, sans-serif;
+        font-size: 9pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .no-print{display:none !important}
+      .print-container{display:block !important}
+      
+      .print-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 4px solid var(--brand-dark-green);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .print-header-info { text-align: right; color: #4B5563; }
+      .print-header-info h1 {
+        font-family: 'Montserrat', sans-serif;
+        color: var(--brand-dark-green);
+        font-size: 20pt;
+        font-weight: 800;
+        margin: 0;
+      }
+      .print-header-info p { margin: 2px 0 0; font-size: 9pt; }
+      
+      .print-main {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+      }
+      
+      .print-section { page-break-inside: avoid; }
+      .section-title.print-section-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11pt;
+        font-weight: 700;
+        color: var(--brand-green);
+        border-bottom: 1px solid var(--brand-gold);
+        padding-bottom: 0.25rem;
+        margin-bottom: 0.75rem;
+      }
+      
+      .card {
+        padding: 0;
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+      }
+      
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .info-row span:first-child { color: #6B7280; }
+      .info-row strong {
+        font-weight: bold;
+        color: var(--brand-dark-green);
+      }
+      .info-value { font-size: 1rem; }
+      .info-row .percentage { font-size: 8pt; color: #6B7280; }
+
+      #map-container-print {
+        display: block !important;
+        height: 250px;
+        border: 1px solid #ccc;
+        margin-top: 1rem;
+      }
+      
+      .print-footer {
+        display: block !important;
+        position: fixed;
+        bottom: 0;
+        left: 1.5cm;
+        right: 1.5cm;
+        text-align: center;
+        font-size: 8pt;
+        color: #6B7280;
+        border-top: 1px solid #ccc;
+        padding-top: 0.5rem;
+      }
+    }
+  
+/* === Compact One-Page Letter Report Overrides === */
+@media print {
+  @page { size: letter; margin: 1cm; }
+
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 8pt;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Show print header/footer and hide interactive-only elements */
+  .no-print { display: none !important; }
+  .print-container { display: block !important; }
+  .print-header { 
+    display: flex !important; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-bottom: 1.5px solid #999; 
+    margin-bottom: .4rem; 
+    padding-bottom: .25rem;
+  }
+  .print-header img { height: 34px; }
+  .print-header-info h1 { font-size: 12pt; margin: 0; font-weight: 800; }
+  .print-header-info p { font-size: 7pt; margin: 0; color: #4B5563; }
+
+  /* Two-column compact grid for all sections */
+  .print-main {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: .45rem;
+  }
+
+  .print-section { 
+    page-break-inside: avoid;
+    margin-bottom: .45rem;
+  }
+
+  .section-title.print-section-title {
+    font-size: 9pt;
+    font-weight: 700;
+    color: #2E3B2B;
+    border-bottom: 1px solid #bbb;
+    padding-bottom: .15rem;
+    margin-bottom: .25rem;
+  }
+
+  .card {
+    padding: .25rem;
+    border: 1px solid #ddd;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .info-row {
+    font-size: 7pt;
+    padding: .1rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  .info-row .percentage { font-size: 7pt; }
+  .info-value { font-size: 9pt; }
+
+  /* Map print container small but legible */
+  #map-container-print { 
+    display: block !important;
+    height: 140px !important; 
+    border: 1px solid #ccc; 
+    margin-top: .25rem; 
+  }
+  #map { display: none !important; } /* hide interactive map on print */
+
+  /* Header area at the very top of page */
+  header[role="banner"].print-header { position: static; }
+
+  /* Footer */
+  .print-footer {
+    display: block !important;
+    font-size: 7pt;
+    text-align: center;
+    border-top: 1px solid #ccc;
+    margin-top: .35rem;
+    padding-top: .25rem;
+  }
+}
+
+
+/* === One-Page Tightening Overrides (Letter) === */
+@media print {
+  @page { size: letter; margin: 0.8cm; }
+  html, body { height: auto !important; }
+  body { font-size: 7pt; line-height: 1.2; }
+
+  /* Kill extra gaps from Tailwind utilities on print */
+  [class*="gap-6"] { gap: .3rem !important; }
+  [class*="mb-6"] { margin-bottom: .3rem !important; }
+  .space-y-6 > * + * { margin-top: .35rem !important; }
+
+  /* Section titles tighter */
+  .section-title.print-section-title { 
+    font-size: 8.5pt !important; 
+    padding-bottom: .1rem !important; 
+    margin-bottom: .2rem !important; 
+    border-bottom-width: 1px !important;
+  }
+
+  .card { padding: .2rem !important; border-width: 1px !important; }
+  .info-row { font-size: 6.8pt !important; padding: .08rem 0 !important; }
+  .info-value { font-size: 8.5pt !important; }
+
+  /* Map even smaller */
+  #map-container-print { height: 110px !important; }
+
+  /* Prevent page breaks inside and reduce margins overall */
+  .print-section { page-break-inside: avoid !important; margin-bottom: .3rem !important; }
+
+  /* Two columns still, but slightly tighter */
+  .print-main { grid-template-columns: 1fr 1fr !important; gap: .3rem !important; }
+
+  /* Header + footer tight */
+  .print-header { margin-bottom: .3rem !important; padding-bottom: .2rem !important; }
+  .print-header img { height: 30px !important; }
+  .print-header-info h1 { font-size: 11pt !important; }
+  .print-header-info p { font-size: 6.5pt !important; }
+
+  .print-footer { margin-top: .3rem !important; padding-top: .2rem !important; font-size: 6.5pt !important; }
+
+  /* Optional global scale to squeeze a bit more on Chrome */
+  body { zoom: 0.93; } /* Adjust 0.90-0.95 if needed */
+}
+
+
+/* === Final Print Report: No Map + Larger Font (Still One Page Letter) === */
+@media print {
+  @page { size: letter; margin: 0.9cm; }
+  html, body { height: auto !important; }
+  body { font-size: 8pt; line-height: 1.25; zoom: 0.96; }
+
+  /* Remove map entirely */
+  #map-container-print, #map-container, #map { display: none !important; }
+
+  /* Tighter spacing */
+  [class*="gap-6"] { gap: .35rem !important; }
+  [class*="mb-6"] { margin-bottom: .35rem !important; }
+  .space-y-6 > * + * { margin-top: .35rem !important; }
+
+  .section-title.print-section-title { 
+    font-size: 9.5pt !important; 
+    margin-bottom: .25rem !important; 
+    border-bottom: 1px solid #aaa !important;
+  }
+  .card { padding: .3rem !important; border-width: 1px !important; }
+  .info-row { font-size: 8pt !important; padding: .1rem 0 !important; }
+  .info-value { font-size: 9pt !important; }
+
+  .print-section { page-break-inside: avoid !important; margin-bottom: .35rem !important; }
+
+  .print-main { grid-template-columns: 1fr 1fr !important; gap: .35rem !important; }
+
+  .print-header { margin-bottom: .4rem !important; padding-bottom: .25rem !important; }
+  .print-header img { height: 32px !important; }
+  .print-header-info h1 { font-size: 12pt !important; }
+  .print-header-info p { font-size: 7pt !important; }
+
+  .print-footer { margin-top: .4rem !important; padding-top: .25rem !important; font-size: 7pt !important; }
+}
+
+
+/* === Final Print Report: No Map + No Marginación + Bigger Header === */
+@media print {
+  @page { size: letter; margin: 0.9cm; }
+  html, body { height: auto !important; }
+  body { font-size: 8.5pt; line-height: 1.3; zoom: 0.96; }
+
+  /* Hide map */
+  #map-container-print, #map-container, #map { display: none !important; }
+
+  /* Hide Grado de Marginación row */
+  #info-marginacion, span:contains('Grado de Marginación') { display: none !important; }
+  /* fallback: hide the entire parent row */
+  .info-row:has(#info-marginacion) { display: none !important; }
+
+  .section-title.print-section-title { 
+    font-size: 10pt !important; 
+    margin-bottom: .3rem !important; 
+    border-bottom: 1px solid #aaa !important;
+  }
+  .card { padding: .35rem !important; border-width: 1px !important; }
+  .info-row { font-size: 8pt !important; padding: .1rem 0 !important; }
+  .info-value { font-size: 9pt !important; }
+
+  .print-section { page-break-inside: avoid !important; margin-bottom: .35rem !important; }
+  .print-main { grid-template-columns: 1fr 1fr !important; gap: .35rem !important; }
+
+  .print-header { margin-bottom: .45rem !important; padding-bottom: .25rem !important; }
+  .print-header img { height: 34px !important; }
+  .print-header-info h1 { font-size: 14pt !important; font-weight: 900 !important; }
+  .print-header-info p { font-size: 7.5pt !important; }
+
+  .print-footer { margin-top: .45rem !important; padding-top: .3rem !important; font-size: 7pt !important; }
+}
+
+
+/* === Remove Localidad Highlight on Print === */
+@media print {
+  #print-localidad, #info-municipio {
+    background: none !important;
+    color: #111 !important;
+    font-weight: 700 !important;
+  }
+  /* Also ensure no card shading interferes */
+  .card { background: #fff !important; }
+}
+
+
+/* === Print: remove shading from selected localidad items === */
+@media print {
+  .localidades-list li button,
+  .localidades-list li button.active {
+    background: none !important;
+    color: #111 !important;
+    font-weight: normal !important;
+    box-shadow: none !important;
+  }
+}
+
+
+/* === Print header tweaks: hide Localidad line; keep Municipio and Fecha === */
+@media print {
+  .print-header-info p:first-of-type { display: none !important; } /* assumes Localidad is first */
+}
+
+
+/* === PRO Print Theme (One-Page Letter, structure intact) === */
+@media print {
+  @page { size: letter; margin: 0.9cm; }
+  html, body { height: auto !important; }
+  body { 
+    font-family: Arial, sans-serif;
+    font-size: 8.6pt; 
+    line-height: 1.3; 
+    color: #111; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+    font-variant-numeric: tabular-nums; 
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    zoom: 0.96; /* keep on one page */
+  }
+
+  /* Header */
+  .print-header { 
+    display: flex !important; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-bottom: 1px solid #c7c7c7; 
+    padding-bottom: .25rem; 
+    margin-bottom: .45rem; 
+  }
+  .print-header img { height: 32px !important; }
+  .print-header-info h1 { font-size: 14.5pt !important; font-weight: 900; margin: 0; }
+  .print-header-info p { font-size: 7.5pt; margin: 0; color: #4B5563; }
+
+  /* Hide emojis in titles to gain horizontal space */
+  .section-title.print-section-title span:first-child { display: none !important; }
+
+  /* Section titles on subtle band */
+  .section-title.print-section-title {
+    background: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    padding: .18rem .3rem;
+    border-radius: 3px;
+    margin-bottom: .28rem;
+    font-size: 9.8pt;
+    color: #1f2937;
+  }
+
+  /* Grid and spacing tighter but readable */
+  .print-main { display: grid !important; grid-template-columns: 1fr 1fr; gap: .38rem; }
+  [class*="gap-6"] { gap: .38rem !important; }
+  [class*="mb-6"] { margin-bottom: .38rem !important; }
+  .space-y-6 > * + * { margin-top: .38rem !important; }
+  .print-section { page-break-inside: avoid; }
+
+  /* Cards */
+  .card { 
+    padding: .3rem; 
+    border: 1px solid #e4e4e4; 
+    border-radius: 4px; 
+    box-shadow: none; 
+    background: #fff; 
+  }
+
+  /* Info rows: dotted leaders */
+  .info-row { 
+    display: flex; 
+    align-items: baseline; 
+    gap: .4rem; 
+    padding: .08rem 0; 
+    border-bottom: 1px solid #f0f0f0; 
+    font-size: 8.2pt; 
+  }
+  .info-row span:first-child {
+    color: #6b7280;
+    position: relative;
+    flex: 1 1 auto;
+  }
+  .info-row span:first-child:after {
+    content: "";
+    display: block;
+    border-bottom: 1px dotted #d4d4d4;
+    position: relative;
+    top: .35rem;
+    transform: translateY(-50%);
+  }
+  .info-row .percentage { color: #6b7280; font-weight: 600; font-size: 7.6pt; }
+  .info-value { min-width: 42px; text-align: right; font-weight: 800; color: #111; }
+
+  /* Localidades list: compact and multi-column */
+  #localidades-list-container.localidades-list {
+    column-count: 2;
+    column-gap: .5rem;
+    max-height: unset !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+  .localidades-list li { break-inside: avoid; }
+  .localidades-list li button { 
+    padding: 2px 4px !important; 
+    border-radius: 2px !important; 
+  }
+  /* No highlight on selection in print */
+  .localidades-list li button,
+  .localidades-list li button.active { 
+    background: none !important; 
+    color: #111 !important; 
+    font-weight: normal !important; 
+    box-shadow: none !important; 
+  }
+
+  /* Remove map entirely in print (per your preference) */
+  #map-container, #map-container-print, #map { display: none !important; }
+
+  /* Footer */
+  .print-footer {
+    display: block !important;
+    text-align: center;
+    font-size: 7.2pt;
+    color: #6b7280;
+    border-top: 1px solid #e5e5e5;
+    margin-top: .4rem;
+    padding-top: .25rem;
+  }
+}
+
+
+/* === PREMIUM PRINT LAYOUT (Institutional, One-Page Letter) === */
+@media print {
+  @page { size: letter; margin: 1cm; }
+  html, body { height: auto !important; }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: #1a1a1a;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-variant-numeric: tabular-nums;
+    zoom: 0.95;
+  }
+
+  /* Header stronger, balanced */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #444;
+    padding-bottom: .3rem;
+    margin-bottom: .5rem;
+  }
+  .print-header img { height: 36px !important; }
+  .print-header-info h1 {
+    font-size: 15pt !important;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin: 0;
+  }
+  .print-header-info p { font-size: 8pt; margin: 0; color: #555; }
+
+  /* Hide Localidad in header */
+  .print-header-info p:first-of-type { display: none !important; }
+
+  /* Section titles */
+  .section-title.print-section-title {
+    background: #f0f0f0;
+    border-left: 4px solid #444;
+    padding: .22rem .4rem;
+    font-size: 10pt;
+    font-weight: 700;
+    margin-bottom: .3rem;
+    color: #222;
+  }
+  .section-title.print-section-title span:first-child { display: none !important; }
+
+  /* Grid */
+  .print-main {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: .45rem;
+  }
+  .print-section { page-break-inside: avoid; margin-bottom: .45rem; }
+
+  /* Cards */
+  .card {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: .35rem .4rem;
+    background: #fff;
+  }
+
+  /* Info rows refined */
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted #ccc;
+    font-size: 8.5pt;
+    padding: .12rem 0;
+  }
+  .info-row span:first-child { color: #444; flex: 1; }
+  .info-value { font-weight: 700; color: #111; min-width: 48px; text-align: right; }
+  .percentage { font-size: 7.5pt; color: #666; }
+
+  /* Localidades list refined */
+  #localidades-list-container.localidades-list {
+    column-count: 2;
+    column-gap: .6rem;
+  }
+  .localidades-list li button,
+  .localidades-list li button.active {
+    background: none !important;
+    color: #222 !important;
+    font-size: 8pt;
+    text-align: left;
+    padding: 1px 2px;
+  }
+
+  /* Hide map in print */
+  #map-container, #map-container-print, #map { display: none !important; }
+
+  /* Footer */
+  .print-footer {
+    border-top: 1.5px solid #444;
+    text-align: center;
+    margin-top: .5rem;
+    padding-top: .3rem;
+    font-size: 8pt;
+    font-weight: 600;
+    color: #444;
+  }
+}
+
+
+@media print {
+  .print-header-info {
+    text-align: center !important;
+    width: 100% !important;
+  }
+  .print-header-info h1 {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 18pt !important;
+    font-weight: 900 !important;
+    color: var(--brand-green) !important; /* olive */
+    margin: 0.2rem 0 !important;
+  }
+  .print-header .flex img:nth-child(1) { max-height: 32px !important; }
+  .print-header .flex img:nth-child(2) { max-height: 34px !important; }
+  .print-header .flex img:nth-child(3) { max-height: 40px !important; } /* larger right logo */
+}
+
+
+@media print {
+  body {
+    font-size: 10pt !important;  /* larger base font */
+    line-height: 1.4 !important;
+  }
+  .info-row { font-size: 9.5pt !important; }
+  .info-value { font-size: 10pt !important; }
+  .print-header-info h1 { font-size: 20pt !important; } /* enlarge title */
+  .print-header-info p { font-size: 9pt !important; }
+  .section-title.print-section-title { font-size: 11pt !important; }
+}
+
+</style>
+</head>
+
+<body class="min-h-full">
+  <div class="print-container">
+    <header role="banner" class="print-header hidden">
+<div class="flex justify-between items-center w-full">
+
+  <!-- Logo Morelos (izquierda) -->
+  <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg"
+       alt="Logo Tierra que nos une" class="h-12" loading="lazy" />
+
+  <!-- Logo ATD (centro) -->
+  <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/ATD.svg"
+       alt="Logo ATD" class="h-12" loading="lazy" />
+
+  <!-- Logo TPBV (derecha) -->
+  <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/TPBV_logo.svg"
+       alt="Logo TPBV" class="h-12" loading="lazy" />
+
+  </div>
+<div class="print-header-info">
+    <h1>Dashboard de TPBV</h1>
+    <p><strong>Localidad:</strong> <span id="print-localidad">—</span></p>
+    <p><strong>Municipio:</strong> <span id="print-municipio">—</span></p>
+    <p><strong>Fecha de Emisión:</strong> <time id="print-date" aria-live="polite"></time></p>
+    <p>Fuente: INEGI Censo 2020</p>
+  </div>
+
+</header>
+
+    <main id="main" class="container-narrow px-4 sm:px-6 lg:px-8 pb-10">
+      <header class="no-print text-center mb-8">
+        <figure class="flex justify-between items-center w-full">
+
+  <!-- Morelos (izquierda) -->
+  <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg"
+       alt="Logo Tierra que nos une" class="h-16 sm:h-20" />
+
+  <!-- ATD (centro) -->
+  <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/ATD.svg"
+       alt="Logo ATD" class="h-14 sm:h-16" />
+
+  <!-- TPBV (derecha) -->
+  <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/TPBV_logo.svg"
+       alt="Logo TPBV" class="h-14 sm:h-16" />
+
+</figure>
+        <h1 class="mt-4 text-3xl sm:text-4xl font-extrabold" style="color:var(--brand-green)">Dashboard de TPBV</h1>
+        <p class="text-gray-600 mt-1">Análisis Sociodemográfico Interactivo</p>
+      </header>
+
+      <aside class="no-print card mb-8">
+        <form class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" aria-label="Filtros de datos">
+          <label class="block">
+            <span class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Polígono</span>
+            <select id="poligono-filter" class="w-full border border-gray-300 rounded-md p-2"></select>
+          </label>
+          <label class="block">
+            <span class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Localidad</span>
+            <select id="localidad-filter" class="w-full border border-gray-300 rounded-md p-2"></select>
+          </label>
+          <button id="print-button" type="button" class="gemini-button w-full">Imprimir Reporte</button>
+        </form>
+      </aside>
+
+      <!-- Top grid for Info and Map -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <section class="print-section" aria-labelledby="info-general-title">
+          <h2 id="info-general-title" class="section-title print-section-title"><span>ℹ️</span>Información General</h2>
+          <article class="card h-full">
+            <p class="info-row"><span>Municipio</span><strong id="info-municipio" class="info-value text-right">—</strong></p>
+            <p class="info-row"><span>Grado de Marginación</span><span id="info-marginacion" class="info-value">—</span></p>
+            <hr class="my-2">
+            <h3 class="font-bold text-gray-600 mb-2">Localidades en este Municipio:</h3>
+            <ul id="localidades-list-container" class="localidades-list">
+                <li>Seleccione una localidad para empezar.</li>
+            </ul>
+          </article>
+        </section>
+        
+        <section id="map-container" class="print-section mb-8" aria-label="Ubicación geográfica">
+          <h2 class="section-title print-section-title"><span>🗺️</span>Ubicación Geográfica</h2>
+          <div class="card p-2 h-full">
+            <div id="map" class="no-print" role="img" aria-label="Mapa de la localidad seleccionada"></div>
+            <div id="map-container-print" class="hidden"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Population and Housing Row -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 print-main">
+          <section class="print-section" aria-label="Población">
+            <h2 class="section-title print-section-title"><span>👥</span>Población</h2>
+            <div class="card" id="pob-container"></div>
+          </section>
+          <section class="print-section" aria-label="Vivienda">
+            <h2 class="section-title print-section-title"><span>🏠</span>Vivienda</h2>
+            <div class="card" id="viv-container"></div>
+          </section>
+      </div>
+
+      <!-- Rest of the data grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print-main">
+          <!-- Left Column -->
+          <div class="space-y-6">
+              <section class="print-section" aria-label="Otros datos demográficos">
+                <h2 class="section-title print-section-title"><span>🧑🏽‍🦱</span>Otros Datos Demográficos</h2>
+                <div class="card" id="demo-container" aria-live="polite"></div>
+              </section>
+              <section class="print-section" aria-label="Educación (15 años y más)">
+                <h2 class="section-title print-section-title"><span>📚</span>Educación (15 años y más)</h2>
+                <div class="card" id="edu-container" aria-live="polite"></div>
+              </section>
+          <section class="print-section" aria-label="Tecnologías de Información (TIC)">
+                <h2 class="section-title print-section-title"><span>📱</span>Tecnologías de Información (TIC)</h2>
+                <div class="card" id="tic-container" aria-live="polite"></div>
+              </section>
+          </div>
+          <!-- Right Column -->
+          <div class="space-y-6">
+              <section class="print-section" aria-label="Servicios de Salud">
+                <h2 class="section-title print-section-title"><span>🏥</span>Servicios de Salud</h2>
+                <div class="card" id="health-container" aria-live="polite"></div>
+              </section>
+              <section class="print-section" aria-label="Bienes y Servicios en la Vivienda">
+                <h2 class="section-title print-section-title"><span>🛠️</span>Bienes y Servicios en la Vivienda</h2>
+                <div class="card" id="bienes-servicios-container" aria-live="polite"></div>
+              </section>
+              
+          </div>
+      </div>
+    </main>
+
+    <footer class="print-footer hidden">
+      TPBV | Territorios de Paz y Buen Vivir — Este documento es para uso informativo.
+    </footer>
+  </div>
+
+  <script>
+        const dataSet = [
+            {"CVEGEO":170020021,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Tlaltetelco (San Miguel Tlaltetelco)","POB1":2098,"POB42":1110,"POB84":988,"EDU28":75,"EDU34":466,"ECO1":885,"ECO7":39,"ECO13":27,"ECO28":808,"AFRO1":7,"DISC4":19,"DISC5":35,"DISC6":68,"SALUD1":1258,"SALUD2":840,"SALUD3":255,"SALUD4":70,"SALUD6":2,"VIV0":806,"VIV7":34,"VIV10":177,"VIV27":449,"VIV28":301,"VIV29":182,"VIV81":30,"VIV15":553,"VIV17":424,"VIV20":531,"VIV34":108,"VIV35":141,"VIV36":492,"GM_2020_y":"Bajo","Latitud":18.952159,"Longitud":-98.886945},
+            {"CVEGEO":170020058,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Rancho Teoxtoc","POB1":23,"POB42":12,"POB84":11,"EDU28":1,"EDU34":10,"ECO1":7,"ECO7":1,"ECO13":2,"ECO28":10,"AFRO1":0,"DISC4":0,"DISC5":2,"DISC6":3,"SALUD1":20,"SALUD2":3,"SALUD3":0,"SALUD4":1,"SALUD6":0,"VIV0":42,"VIV7":2,"VIV10":4,"VIV27":6,"VIV28":2,"VIV29":1,"VIV81":2,"VIV15":7,"VIV17":3,"VIV20":6,"VIV34":1,"VIV35":1,"VIV36":7,"GM_2020_y":"Alto","Latitud":18.953798,"Longitud":-98.895895},
+            {"CVEGEO":170020078,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Colonia Alta Vista","POB1":47,"POB42":21,"POB84":26,"EDU28":1,"EDU34":19,"ECO1":22,"ECO7":1,"ECO13":1,"ECO28":12,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":3,"SALUD1":25,"SALUD2":22,"SALUD3":9,"SALUD4":0,"SALUD6":0,"VIV0":46,"VIV7":2,"VIV10":6,"VIV27":12,"VIV28":6,"VIV29":4,"VIV81":1,"VIV15":13,"VIV17":5,"VIV20":12,"VIV34":0,"VIV35":0,"VIV36":14,"GM_2020_y":"Medio","Latitud":18.971523,"Longitud":-98.888316},
+            {"CVEGEO":170020080,"Municipio":"Atlatlahucan","Poligono":1,"Localidad":"Linda Vista","POB1":20,"POB42":10,"POB84":10,"EDU28":0,"EDU34":5,"ECO1":7,"ECO7":0,"ECO13":0,"ECO28":8,"AFRO1":1,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":11,"SALUD2":9,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":21,"VIV7":3,"VIV10":3,"VIV27":3,"VIV28":1,"VIV29":2,"VIV81":1,"VIV15":5,"VIV17":4,"VIV20":3,"VIV34":0,"VIV35":0,"VIV36":6,"GM_2020_y":"Alto","Latitud":18.969407,"Longitud":-98.891804},
+            {"CVEGEO":170030017,"Municipio":"Axochiapan","Poligono":2,"Localidad":"La Nopalera","POB1":412,"POB42":207,"POB84":205,"EDU28":71,"EDU34":87,"ECO1":196,"ECO7":61,"ECO13":7,"ECO28":95,"AFRO1":0,"DISC4":1,"DISC5":12,"DISC6":12,"SALUD1":341,"SALUD2":71,"SALUD3":6,"SALUD4":10,"SALUD6":1,"VIV0":106,"VIV7":10,"VIV10":31,"VIV27":58,"VIV28":46,"VIV29":31,"VIV81":43,"VIV15":73,"VIV17":72,"VIV20":63,"VIV34":7,"VIV35":19,"VIV36":65,"GM_2020_y":"Alto","Latitud":18.571663,"Longitud":-98.742371},
+            {"CVEGEO":170030073,"Municipio":"Axochiapan","Poligono":2,"Localidad":"Campo Jicamal","POB1":183,"POB42":95,"POB84":88,"EDU28":5,"EDU34":48,"ECO1":94,"ECO7":3,"ECO13":5,"ECO28":32,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":163,"SALUD2":20,"SALUD3":8,"SALUD4":1,"SALUD6":0,"VIV0":57,"VIV7":7,"VIV10":21,"VIV27":27,"VIV28":22,"VIV29":5,"VIV81":27,"VIV15":38,"VIV17":38,"VIV20":25,"VIV34":2,"VIV35":3,"VIV36":34,"GM_2020_y":"Bajo","Latitud":18.558818,"Longitud":-98.769521},
+            {"CVEGEO":170040106,"Municipio":"Ayala","Poligono":3,"Localidad":"Ampliación Chinameca","POB1":17,"POB42":9,"POB84":8,"EDU28":0,"EDU34":3,"ECO1":7,"ECO7":0,"ECO13":0,"ECO28":5,"AFRO1":1,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":17,"SALUD2":0,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":5,"VIV7":1,"VIV10":2,"VIV27":0,"VIV28":0,"VIV29":2,"VIV81":1,"VIV15":1,"VIV17":0,"VIV20":4,"VIV34":0,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.611188,"Longitud":-99.016804},
+            {"CVEGEO":170040139,"Municipio":"Ayala","Poligono":3,"Localidad":"El Crucero de Chinameca","POB1":61,"POB42":30,"POB84":31,"EDU28":4,"EDU34":11,"ECO1":36,"ECO7":3,"ECO13":2,"ECO28":13,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":51,"SALUD2":10,"SALUD3":16,"SALUD4":1,"SALUD6":2,"VIV0":25,"VIV7":0,"VIV10":4,"VIV27":17,"VIV28":16,"VIV29":9,"VIV81":6,"VIV15":18,"VIV17":16,"VIV20":18,"VIV34":4,"VIV35":3,"VIV36":17,"GM_2020_y":"Muy bajo","Latitud":18.626111,"Longitud":-99.004167},
+            {"CVEGEO":170040168,"Municipio":"Ayala","Poligono":3,"Localidad":"Colonia Pablo Torres Burgos","POB1":15,"POB42":6,"POB84":9,"EDU28":0,"EDU34":6,"ECO1":11,"ECO7":0,"ECO13":1,"ECO28":1,"AFRO1":0,"DISC4":1,"DISC5":0,"DISC6":0,"SALUD1":14,"SALUD2":1,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":7,"VIV7":0,"VIV10":1,"VIV27":3,"VIV28":1,"VIV29":1,"VIV81":2,"VIV15":3,"VIV17":3,"VIV20":3,"VIV34":2,"VIV35":0,"VIV36":3,"GM_2020_y":"Bajo","Latitud":18.619196,"Longitud":-99.006067},
+            {"CVEGEO":170040186,"Municipio":"Ayala","Poligono":3,"Localidad":"Ampliación la Cucaracha","POB1":40,"POB42":20,"POB84":20,"EDU28":2,"EDU34":15,"ECO1":20,"ECO7":2,"ECO13":0,"ECO28":11,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":28,"SALUD2":12,"SALUD3":2,"SALUD4":2,"SALUD6":2,"VIV0":15,"VIV7":3,"VIV10":3,"VIV27":7,"VIV28":5,"VIV29":5,"VIV81":0,"VIV15":8,"VIV17":1,"VIV20":7,"VIV34":2,"VIV35":1,"VIV36":8,"GM_2020_y":"Alto","Latitud":18.626411,"Longitud":-98.988651},
+            {"CVEGEO":170040188,"Municipio":"Ayala","Poligono":3,"Localidad":"Campo el Brasil","POB1":19,"POB42":9,"POB84":10,"EDU28":0,"EDU34":3,"ECO1":7,"ECO7":0,"ECO13":0,"ECO28":5,"AFRO1":1,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":19,"SALUD2":0,"SALUD3":1,"SALUD4":4,"SALUD6":0,"VIV0":13,"VIV7":0,"VIV10":1,"VIV27":5,"VIV28":3,"VIV29":2,"VIV81":0,"VIV15":5,"VIV17":4,"VIV20":5,"VIV34":3,"VIV35":1,"VIV36":3,"GM_2020_y":"Muy bajo","Latitud":18.626702,"Longitud":-98.995352},
+            {"CVEGEO":170040028,"Municipio":"Ayala","Poligono":3,"Localidad":"El Vergel","POB1":987,"POB42":483,"POB84":504,"EDU28":74,"EDU34":281,"ECO1":409,"ECO7":28,"ECO13":30,"ECO28":355,"AFRO1":5,"DISC4":4,"DISC5":38,"DISC6":56,"SALUD1":856,"SALUD2":131,"SALUD3":185,"SALUD4":3,"SALUD6":0,"VIV0":368,"VIV7":6,"VIV10":69,"VIV27":225,"VIV28":151,"VIV29":90,"VIV81":41,"VIV15":268,"VIV17":241,"VIV20":249,"VIV34":30,"VIV35":144,"VIV36":149,"GM_2020_y":"Bajo","Latitud":18.59011378,"Longitud":-99.03458552},
+            {"CVEGEO":170060114,"Municipio":"Cuautla","Poligono":4,"Localidad":"Campo Carrizal","POB1":13,"POB42":6,"POB84":7,"EDU28":0,"EDU34":7,"ECO1":7,"ECO7":0,"ECO13":1,"ECO28":1,"AFRO1":0,"DISC4":1,"DISC5":0,"DISC6":0,"SALUD1":6,"SALUD2":7,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":6,"VIV7":0,"VIV10":2,"VIV27":2,"VIV28":1,"VIV29":0,"VIV81":3,"VIV15":3,"VIV17":0,"VIV20":2,"VIV34":1,"VIV35":0,"VIV36":2,"GM_2020_y":"Alto","Latitud":18.778763,"Longitud":-98.905898},
+            {"CVEGEO":170060136,"Municipio":"Cuautla","Poligono":4,"Localidad":"Ampliación Iztaccíhuatl","POB1":191,"POB42":95,"POB84":96,"EDU28":6,"EDU34":59,"ECO1":104,"ECO7":6,"ECO13":6,"ECO28":44,"AFRO1":5,"DISC4":0,"DISC5":4,"DISC6":5,"SALUD1":93,"SALUD2":98,"SALUD3":35,"SALUD4":7,"SALUD6":0,"VIV0":72,"VIV7":6,"VIV10":16,"VIV27":43,"VIV28":27,"VIV29":16,"VIV81":7,"VIV15":46,"VIV17":39,"VIV20":43,"VIV34":11,"VIV35":8,"VIV36":42,"GM_2020_y":"Bajo","Latitud":18.794451,"Longitud":-98.909058},
+            {"CVEGEO":170060137,"Municipio":"Cuautla","Poligono":4,"Localidad":"Ampliación Iztaccíhuatl 2","POB1":397,"POB42":194,"POB84":203,"EDU28":19,"EDU34":114,"ECO1":196,"ECO7":5,"ECO13":12,"ECO28":146,"AFRO1":2,"DISC4":11,"DISC5":30,"DISC6":15,"SALUD1":284,"SALUD2":113,"SALUD3":78,"SALUD4":20,"SALUD6":2,"VIV0":133,"VIV7":9,"VIV10":34,"VIV27":82,"VIV28":103,"VIV29":29,"VIV81":19,"VIV15":103,"VIV17":103,"VIV20":103,"VIV34":34,"VIV35":19,"VIV36":103,"GM_2020_y":"Bajo","Latitud":18.79697817,"Longitud":-98.89867969},
+            {"CVEGEO":170060138,"Municipio":"Cuautla","Poligono":4,"Localidad":"Iztaccíhuatl","POB1":6000,"POB42":0,"POB84":0,"EDU28":0,"EDU34":0,"ECO1":0,"ECO7":0,"ECO13":0,"ECO28":0,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":0,"SALUD2":0,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":0,"VIV7":0,"VIV10":0,"VIV27":0,"VIV28":0,"VIV29":0,"VIV81":0,"VIV15":0,"VIV17":0,"VIV20":0,"VIV34":0,"VIV35":0,"VIV36":0,"GM_2020_y":"Bajo","Latitud":18.800879,"Longitud":-98.90876488},
+            {"CVEGEO":170080036,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Campo el Órgano","POB1":369,"POB42":192,"POB84":177,"EDU28":20,"EDU34":101,"ECO1":188,"ECO7":21,"ECO13":15,"ECO28":94,"AFRO1":4,"DISC4":7,"DISC5":10,"DISC6":11,"SALUD1":250,"SALUD2":119,"SALUD3":105,"SALUD4":2,"SALUD6":2,"VIV0":149,"VIV7":9,"VIV10":43,"VIV27":93,"VIV28":50,"VIV29":21,"VIV81":30,"VIV15":100,"VIV17":96,"VIV20":97,"VIV34":17,"VIV35":31,"VIV36":89,"GM_2020_y":"Bajo","Latitud":18.830511,"Longitud":-99.175174},
+            {"CVEGEO":170080045,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Puente Colorado (Campo la Palma)","POB1":14,"POB42":5,"POB84":9,"EDU28":2,"EDU34":5,"ECO1":10,"ECO7":1,"ECO13":2,"ECO28":2,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":6,"SALUD2":8,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":10,"VIV7":2,"VIV10":2,"VIV27":0,"VIV28":1,"VIV29":1,"VIV81":2,"VIV15":4,"VIV17":0,"VIV20":1,"VIV34":2,"VIV35":0,"VIV36":5,"GM_2020_y":"Muy alto","Latitud":18.8332,"Longitud":-99.172564},
+            {"CVEGEO":170080057,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Colonia Modesto Rangel","POB1":345,"POB42":173,"POB84":172,"EDU28":16,"EDU34":97,"ECO1":182,"ECO7":11,"ECO13":11,"ECO28":79,"AFRO1":3,"DISC4":3,"DISC5":8,"DISC6":6,"SALUD1":252,"SALUD2":93,"SALUD3":57,"SALUD4":2,"SALUD6":0,"VIV0":125,"VIV7":12,"VIV10":36,"VIV27":86,"VIV28":44,"VIV29":34,"VIV81":43,"VIV15":96,"VIV17":91,"VIV20":87,"VIV34":15,"VIV35":14,"VIV36":85,"GM_2020_y":"Bajo","Latitud":18.827052,"Longitud":-99.179111},
+            {"CVEGEO":170080072,"Municipio":"Emiliano Zapata","Poligono":5,"Localidad":"Ojo de Agua","POB1":60,"POB42":30,"POB84":30,"EDU28":4,"EDU34":14,"ECO1":33,"ECO7":6,"ECO13":2,"ECO28":9,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":38,"SALUD2":22,"SALUD3":6,"SALUD4":0,"SALUD6":0,"VIV0":17,"VIV7":2,"VIV10":8,"VIV27":4,"VIV28":2,"VIV29":5,"VIV81":2,"VIV15":5,"VIV17":4,"VIV20":9,"VIV34":2,"VIV35":1,"VIV36":12,"GM_2020_y":"Muy alto","Latitud":18.820106,"Longitud":-99.165582},
+            {"CVEGEO":170090097,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Los Hongos","POB1":108,"POB42":49,"POB84":59,"EDU28":8,"EDU34":27,"ECO1":54,"ECO7":7,"ECO13":5,"ECO28":22,"AFRO1":11,"DISC4":1,"DISC5":2,"DISC6":4,"SALUD1":37,"SALUD2":71,"SALUD3":10,"SALUD4":9,"SALUD6":0,"VIV0":54,"VIV7":7,"VIV10":11,"VIV27":17,"VIV28":20,"VIV29":10,"VIV81":2,"VIV15":32,"VIV17":4,"VIV20":30,"VIV34":2,"VIV35":0,"VIV36":26,"GM_2020_y":"Alto","Latitud":19.063069,"Longitud":-99.238079},
+            {"CVEGEO":170090098,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Barrio Tezoyo (El Cuartel)","POB1":202,"POB42":101,"POB84":101,"EDU28":2,"EDU34":29,"ECO1":106,"ECO7":1,"ECO13":5,"ECO28":52,"AFRO1":0,"DISC4":1,"DISC5":6,"DISC6":3,"SALUD1":141,"SALUD2":61,"SALUD3":46,"SALUD4":23,"SALUD6":2,"VIV0":75,"VIV7":1,"VIV10":18,"VIV27":32,"VIV28":36,"VIV29":18,"VIV81":4,"VIV15":52,"VIV17":33,"VIV20":49,"VIV34":12,"VIV35":8,"VIV36":48,"GM_2020_y":"Bajo","Latitud":19.061796,"Longitud":-99.240149},
+            {"CVEGEO":170090099,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Colonia Antonio Segura","POB1":121,"POB42":60,"POB84":61,"EDU28":3,"EDU34":29,"ECO1":69,"ECO7":4,"ECO13":6,"ECO28":25,"AFRO1":0,"DISC4":0,"DISC5":10,"DISC6":4,"SALUD1":91,"SALUD2":30,"SALUD3":20,"SALUD4":24,"SALUD6":3,"VIV0":61,"VIV7":3,"VIV10":12,"VIV27":12,"VIV28":12,"VIV29":10,"VIV81":3,"VIV15":31,"VIV17":7,"VIV20":25,"VIV34":6,"VIV35":5,"VIV36":26,"GM_2020_y":"Medio","Latitud":19.053758,"Longitud":-99.235942},
+            {"CVEGEO":170090050,"Municipio":"Huitzilac","Poligono":6,"Localidad":"Lagunita","POB1":82,"POB42":38,"POB84":44,"EDU28":6,"EDU34":18,"ECO1":36,"ECO7":1,"ECO13":5,"ECO28":30,"AFRO1":0,"DISC4":1,"DISC5":5,"DISC6":0,"SALUD1":55,"SALUD2":27,"SALUD3":5,"SALUD4":4,"SALUD6":0,"VIV0":30,"VIV7":1,"VIV10":8,"VIV27":7,"VIV28":7,"VIV29":9,"VIV81":1,"VIV15":20,"VIV17":16,"VIV20":19,"VIV34":4,"VIV35":3,"VIV36":18,"GM_2020_y":"Medio","Latitud":19.06260555,"Longitud":-99.24964178},
+            {"CVEGEO":170110069,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Colonia Loma Bonita","POB1":360,"POB42":161,"POB84":199,"EDU28":20,"EDU34":102,"ECO1":222,"ECO7":28,"ECO13":17,"ECO28":66,"AFRO1":4,"DISC4":2,"DISC5":3,"DISC6":12,"SALUD1":207,"SALUD2":153,"SALUD3":107,"SALUD4":6,"SALUD6":2,"VIV0":225,"VIV7":48,"VIV10":38,"VIV27":74,"VIV28":33,"VIV29":33,"VIV81":15,"VIV15":106,"VIV17":27,"VIV20":89,"VIV34":13,"VIV35":17,"VIV36":96,"GM_2020_y":"Alto","Latitud":18.870146,"Longitud":-99.147096},
+            {"CVEGEO":170110072,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Colonia Luis Donaldo Colosio","POB1":135,"POB42":75,"POB84":60,"EDU28":8,"EDU34":36,"ECO1":43,"ECO7":1,"ECO13":0,"ECO28":54,"AFRO1":0,"DISC4":0,"DISC5":2,"DISC6":0,"SALUD1":62,"SALUD2":73,"SALUD3":26,"SALUD4":1,"SALUD6":0,"VIV0":57,"VIV7":3,"VIV10":11,"VIV27":28,"VIV28":19,"VIV29":10,"VIV81":0,"VIV15":32,"VIV17":31,"VIV20":29,"VIV34":4,"VIV35":9,"VIV36":25,"GM_2020_y":"Bajo","Latitud":18.881877,"Longitud":-99.132808},
+            {"CVEGEO":170110078,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Lomas de Chapultepec","POB1":172,"POB42":76,"POB84":96,"EDU28":9,"EDU34":34,"ECO1":79,"ECO7":4,"ECO13":4,"ECO28":54,"AFRO1":9,"DISC4":0,"DISC5":3,"DISC6":4,"SALUD1":98,"SALUD2":71,"SALUD3":38,"SALUD4":3,"SALUD6":1,"VIV0":66,"VIV7":3,"VIV10":20,"VIV27":44,"VIV28":21,"VIV29":15,"VIV81":4,"VIV15":49,"VIV17":46,"VIV20":44,"VIV34":9,"VIV35":10,"VIV36":45,"GM_2020_y":"Bajo","Latitud":18.876027,"Longitud":-99.13486},
+            {"CVEGEO":170110083,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Ampliación Chapultepec","POB1":116,"POB42":60,"POB84":56,"EDU28":6,"EDU34":37,"ECO1":67,"ECO7":4,"ECO13":7,"ECO28":13,"AFRO1":0,"DISC4":2,"DISC5":2,"DISC6":2,"SALUD1":69,"SALUD2":46,"SALUD3":26,"SALUD4":0,"SALUD6":0,"VIV0":40,"VIV7":7,"VIV10":12,"VIV27":31,"VIV28":16,"VIV29":14,"VIV81":5,"VIV15":32,"VIV17":13,"VIV20":29,"VIV34":5,"VIV35":8,"VIV36":27,"GM_2020_y":"Medio","Latitud":18.870844,"Longitud":-99.141971},
+            {"CVEGEO":170110084,"Municipio":"Jiutepec","Poligono":7,"Localidad":"Cerro de la Corona","POB1":233,"POB42":129,"POB84":104,"EDU28":16,"EDU34":51,"ECO1":113,"ECO7":17,"ECO13":5,"ECO28":65,"AFRO1":3,"DISC4":1,"DISC5":3,"DISC6":3,"SALUD1":158,"SALUD2":75,"SALUD3":73,"SALUD4":2,"SALUD6":0,"VIV0":68,"VIV7":4,"VIV10":22,"VIV27":48,"VIV28":26,"VIV29":13,"VIV81":0,"VIV15":53,"VIV17":53,"VIV20":48,"VIV34":7,"VIV35":12,"VIV36":50,"GM_2020_y":"Bajo","Latitud":18.883976,"Longitud":-99.13659},
+            {"CVEGEO":170120002,"Municipio":"Jojutla","Poligono":8,"Localidad":"Chisco","POB1":516,"POB42":250,"POB84":266,"EDU28":41,"EDU34":104,"ECO1":203,"ECO7":29,"ECO13":7,"ECO28":202,"AFRO1":0,"DISC4":6,"DISC5":25,"DISC6":39,"SALUD1":395,"SALUD2":121,"SALUD3":64,"SALUD4":26,"SALUD6":17,"VIV0":241,"VIV7":13,"VIV10":46,"VIV27":132,"VIV28":78,"VIV29":45,"VIV81":19,"VIV15":151,"VIV17":150,"VIV20":142,"VIV34":14,"VIV35":34,"VIV36":117,"GM_2020_y":"Bajo","Latitud":18.548565,"Longitud":-99.235304},
+            {"CVEGEO":170120009,"Municipio":"Jojutla","Poligono":8,"Localidad":"Río Seco","POB1":238,"POB42":126,"POB84":112,"EDU28":22,"EDU34":42,"ECO1":89,"ECO7":24,"ECO13":2,"ECO28":93,"AFRO1":0,"DISC4":3,"DISC5":6,"DISC6":17,"SALUD1":204,"SALUD2":34,"SALUD3":25,"SALUD4":0,"SALUD6":0,"VIV0":131,"VIV7":8,"VIV10":13,"VIV27":69,"VIV28":53,"VIV29":26,"VIV81":7,"VIV15":74,"VIV17":75,"VIV20":70,"VIV34":3,"VIV35":28,"VIV36":59,"GM_2020_y":"Bajo","Latitud":18.567643,"Longitud":-99.244183},
+            {"CVEGEO":170120014,"Municipio":"Jojutla","Poligono":8,"Localidad":"Vicente Aranda (San Rafael)","POB1":335,"POB42":161,"POB84":174,"EDU28":15,"EDU34":85,"ECO1":127,"ECO7":10,"ECO13":6,"ECO28":133,"AFRO1":0,"DISC4":2,"DISC5":26,"DISC6":47,"SALUD1":247,"SALUD2":88,"SALUD3":52,"SALUD4":0,"SALUD6":3,"VIV0":159,"VIV7":5,"VIV10":32,"VIV27":93,"VIV28":65,"VIV29":31,"VIV81":7,"VIV15":102,"VIV17":102,"VIV20":93,"VIV34":8,"VIV35":40,"VIV36":71,"GM_2020_y":"Bajo","Latitud":18.561006,"Longitud":-99.238213},
+            {"CVEGEO":170130019,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"El Puente Colorado","POB1":40,"POB42":18,"POB84":22,"EDU28":3,"EDU34":12,"ECO1":24,"ECO7":0,"ECO13":1,"ECO28":11,"AFRO1":0,"DISC4":0,"DISC5":2,"DISC6":3,"SALUD1":37,"SALUD2":3,"SALUD3":7,"SALUD4":1,"SALUD6":1,"VIV0":36,"VIV7":1,"VIV10":2,"VIV27":11,"VIV28":6,"VIV29":7,"VIV81":5,"VIV15":12,"VIV17":10,"VIV20":10,"VIV34":2,"VIV35":0,"VIV36":13,"GM_2020_y":"Bajo","Latitud":18.65637067,"Longitud":-98.78643375},
+            {"CVEGEO":170130051,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"Tetelilla","POB1":9,"POB42":6,"POB84":3,"EDU28":2,"EDU34":3,"ECO1":2,"ECO7":1,"ECO13":0,"ECO28":6,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":1,"SALUD1":9,"SALUD2":0,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":4,"VIV7":0,"VIV10":1,"VIV27":2,"VIV28":2,"VIV29":0,"VIV81":2,"VIV15":3,"VIV17":3,"VIV20":0,"VIV34":0,"VIV35":0,"VIV36":1,"GM_2020_y":"Alto","Latitud":18.612861,"Longitud":-98.766259},
+            {"CVEGEO":170130053,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"Colonia San Martín","POB1":41,"POB42":22,"POB84":19,"EDU28":0,"EDU34":11,"ECO1":19,"ECO7":0,"ECO13":3,"ECO28":8,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":40,"SALUD2":1,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":14,"VIV7":1,"VIV10":6,"VIV27":7,"VIV28":2,"VIV29":2,"VIV81":7,"VIV15":10,"VIV17":8,"VIV20":6,"VIV34":0,"VIV35":0,"VIV36":9,"GM_2020_y":"Medio","Latitud":18.618274,"Longitud":-98.778598},
+            {"CVEGEO":170130019,"Municipio":"Jonacatepec de Leandro Valle","Poligono":9,"Localidad":"El Puente Colorado","POB1":40,"POB42":18,"POB84":22,"EDU28":3,"EDU34":12,"ECO1":24,"ECO7":0,"ECO13":1,"ECO28":11,"AFRO1":0,"DISC4":0,"DISC5":2,"DISC6":3,"SALUD1":37,"SALUD2":3,"SALUD3":7,"SALUD4":1,"SALUD6":1,"VIV0":36,"VIV7":1,"VIV10":2,"VIV27":11,"VIV28":6,"VIV29":7,"VIV81":5,"VIV15":12,"VIV17":10,"VIV20":10,"VIV34":2,"VIV35":0,"VIV36":13,"GM_2020_y":"Bajo","Latitud":18.6418027,"Longitud":-98.78414654},
+            {"CVEGEO":170180029,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo Santa Cruz (La Joya)","POB1":15,"POB42":6,"POB84":9,"EDU28":0,"EDU34":6,"ECO1":4,"ECO7":0,"ECO13":0,"ECO28":7,"AFRO1":0,"DISC4":1,"DISC5":0,"DISC6":2,"SALUD1":14,"SALUD2":1,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":7,"VIV7":1,"VIV10":3,"VIV27":1,"VIV28":0,"VIV29":1,"VIV81":0,"VIV15":3,"VIV17":1,"VIV20":1,"VIV34":0,"VIV35":0,"VIV36":3,"GM_2020_y":"Alto","Latitud":18.83303,"Longitud":-99.217955},
+            {"CVEGEO":170180030,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo Sotelo","POB1":1379,"POB42":732,"POB84":647,"EDU28":38,"EDU34":117,"ECO1":720,"ECO7":22,"ECO13":17,"ECO28":398,"AFRO1":198,"DISC4":12,"DISC5":45,"DISC6":41,"SALUD1":953,"SALUD2":426,"SALUD3":503,"SALUD4":198,"SALUD6":8,"VIV0":1515,"VIV7":9,"VIV10":59,"VIV27":442,"VIV28":339,"VIV29":300,"VIV81":74,"VIV15":458,"VIV17":454,"VIV20":446,"VIV34":263,"VIV35":181,"VIV36":443,"GM_2020_y":"Muy bajo","Latitud":18.835668,"Longitud":-99.214268},
+            {"CVEGEO":170180052,"Municipio":"Temixco","Poligono":10,"Localidad":"Campo las Martinicas (Las Higueras)","POB1":40,"POB42":19,"POB84":21,"EDU28":5,"EDU34":6,"ECO1":18,"ECO7":4,"ECO13":0,"ECO28":12,"AFRO1":23,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":21,"SALUD2":19,"SALUD3":2,"SALUD4":3,"SALUD6":0,"VIV0":14,"VIV7":3,"VIV10":4,"VIV27":6,"VIV28":3,"VIV29":4,"VIV81":4,"VIV15":8,"VIV17":7,"VIV20":7,"VIV34":1,"VIV35":0,"VIV36":9,"GM_2020_y":"Alto","Latitud":18.824019,"Longitud":-99.210747},
+            {"CVEGEO":170180070,"Municipio":"Temixco","Poligono":10,"Localidad":"Colonia Miguel Hidalgo","POB1":565,"POB42":308,"POB84":257,"EDU28":12,"EDU34":60,"ECO1":310,"ECO7":7,"ECO13":5,"ECO28":163,"AFRO1":0,"DISC4":0,"DISC5":6,"DISC6":14,"SALUD1":421,"SALUD2":144,"SALUD3":256,"SALUD4":63,"SALUD6":0,"VIV0":484,"VIV7":0,"VIV10":17,"VIV27":175,"VIV28":139,"VIV29":118,"VIV81":19,"VIV15":178,"VIV17":180,"VIV20":177,"VIV34":107,"VIV35":82,"VIV36":177,"GM_2020_y":"Muy bajo","Latitud":18.841751,"Longitud":-99.21511},
+            {"CVEGEO":170190008,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Pitzotlán","POB1":43,"POB42":16,"POB84":27,"EDU28":3,"EDU34":11,"ECO1":28,"ECO7":4,"ECO13":1,"ECO28":6,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":38,"SALUD2":5,"SALUD3":3,"SALUD4":1,"SALUD6":0,"VIV0":25,"VIV7":3,"VIV10":3,"VIV27":0,"VIV28":0,"VIV29":8,"VIV81":0,"VIV15":1,"VIV17":16,"VIV20":11,"VIV34":1,"VIV35":0,"VIV36":14,"GM_2020_y":"Alto","Latitud":18.586937,"Longitud":-98.893014},
+            {"CVEGEO":170190019,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Rancho el Bambú (La Presa)","POB1":32,"POB42":18,"POB84":14,"EDU28":4,"EDU34":7,"ECO1":16,"ECO7":2,"ECO13":0,"ECO28":8,"AFRO1":0,"DISC4":1,"DISC5":0,"DISC6":0,"SALUD1":29,"SALUD2":3,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":9,"VIV7":0,"VIV10":3,"VIV27":4,"VIV28":3,"VIV29":1,"VIV81":1,"VIV15":5,"VIV17":4,"VIV20":4,"VIV34":1,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.586967,"Longitud":-98.830795},
+            {"CVEGEO":170190031,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Colonia Buenos Aires","POB1":46,"POB42":21,"POB84":25,"EDU28":3,"EDU34":17,"ECO1":25,"ECO7":2,"ECO13":0,"ECO28":12,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":31,"SALUD2":15,"SALUD3":2,"SALUD4":2,"SALUD6":0,"VIV0":34,"VIV7":6,"VIV10":5,"VIV27":7,"VIV28":5,"VIV29":4,"VIV81":7,"VIV15":14,"VIV17":12,"VIV20":12,"VIV34":0,"VIV35":0,"VIV36":14,"GM_2020_y":"Medio","Latitud":18.583739,"Longitud":-98.845695},
+            {"CVEGEO":170190043,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"Colonia Emiliano Zapata","POB1":29,"POB42":13,"POB84":16,"EDU28":2,"EDU34":13,"ECO1":12,"ECO7":1,"ECO13":0,"ECO28":10,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":21,"SALUD2":8,"SALUD3":2,"SALUD4":1,"SALUD6":0,"VIV0":17,"VIV7":1,"VIV10":5,"VIV27":1,"VIV28":4,"VIV29":2,"VIV81":2,"VIV15":7,"VIV17":7,"VIV20":5,"VIV34":0,"VIV35":0,"VIV36":8,"GM_2020_y":"Alto","Latitud":18.588799,"Longitud":-98.854231},
+            {"CVEGEO":170190051,"Municipio":"Tepalcingo","Poligono":11,"Localidad":"La Joya","POB1":20,"POB42":8,"POB84":12,"EDU28":3,"EDU34":10,"ECO1":8,"ECO7":0,"ECO13":1,"ECO28":9,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":3,"SALUD1":13,"SALUD2":7,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":9,"VIV7":3,"VIV10":1,"VIV27":1,"VIV28":2,"VIV29":1,"VIV81":1,"VIV15":6,"VIV17":5,"VIV20":5,"VIV34":0,"VIV35":0,"VIV36":3,"GM_2020_y":"Alto","Latitud":18.588022,"Longitud":-98.839349},
+            {"CVEGEO":170220012,"Municipio":"Tetela del Volcan","Poligono":12,"Localidad":"El Malinal","POB1":29,"POB42":15,"POB84":14,"EDU28":3,"EDU34":9,"ECO1":19,"ECO7":4,"ECO13":1,"ECO28":0,"AFRO1":0,"DISC4":1,"DISC5":1,"DISC6":0,"SALUD1":28,"SALUD2":1,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":8,"VIV7":5,"VIV10":5,"VIV27":3,"VIV28":2,"VIV29":2,"VIV81":0,"VIV15":8,"VIV17":8,"VIV20":3,"VIV34":0,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.907641,"Longitud":-98.728682},
+            {"CVEGEO":170240002,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Acamilpa","POB1":1885,"POB42":961,"POB84":924,"EDU28":103,"EDU34":360,"ECO1":796,"ECO7":34,"ECO13":19,"ECO28":729,"AFRO1":11,"DISC4":6,"DISC5":44,"DISC6":96,"SALUD1":1533,"SALUD2":352,"SALUD3":804,"SALUD4":88,"SALUD6":6,"VIV0":751,"VIV7":29,"VIV10":136,"VIV27":497,"VIV28":365,"VIV29":197,"VIV81":59,"VIV15":554,"VIV17":553,"VIV20":540,"VIV34":136,"VIV35":242,"VIV36":451,"GM_2020_y":"Muy bajo","Latitud":18.715474,"Longitud":-99.159442},
+            {"CVEGEO":170240080,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Colonia Francisco Javier Mina","POB1":38,"POB42":20,"POB84":18,"EDU28":4,"EDU34":10,"ECO1":16,"ECO7":2,"ECO13":0,"ECO28":15,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":34,"SALUD2":4,"SALUD3":9,"SALUD4":4,"SALUD6":0,"VIV0":38,"VIV7":2,"VIV10":3,"VIV27":1,"VIV28":2,"VIV29":3,"VIV81":0,"VIV15":4,"VIV17":13,"VIV20":8,"VIV34":0,"VIV35":0,"VIV36":11,"GM_2020_y":"Alto","Latitud":18.711297,"Longitud":-99.136884},
+            {"CVEGEO":170240084,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"El Texcal","POB1":54,"POB42":24,"POB84":30,"EDU28":2,"EDU34":12,"ECO1":26,"ECO7":2,"ECO13":2,"ECO28":10,"AFRO1":0,"DISC4":0,"DISC5":2,"DISC6":0,"SALUD1":38,"SALUD2":16,"SALUD3":3,"SALUD4":0,"SALUD6":0,"VIV0":13,"VIV7":4,"VIV10":8,"VIV27":9,"VIV28":2,"VIV29":4,"VIV81":5,"VIV15":11,"VIV17":1,"VIV20":8,"VIV34":1,"VIV35":0,"VIV36":10,"GM_2020_y":"Alto","Latitud":18.714769,"Longitud":-99.161939},
+            {"CVEGEO":170240010,"Municipio":"Tlaltizapan de Zapata","Poligono":13,"Localidad":"Pueblo Nuevo","POB1":1280,"POB42":636,"POB84":644,"EDU28":39,"EDU34":222,"ECO1":616,"ECO7":16,"ECO13":22,"ECO28":424,"AFRO1":2,"DISC4":10,"DISC5":30,"DISC6":56,"SALUD1":1003,"SALUD2":277,"SALUD3":560,"SALUD4":62,"SALUD6":19,"VIV0":449,"VIV7":17,"VIV10":86,"VIV27":338,"VIV28":221,"VIV29":136,"VIV81":39,"VIV15":356,"VIV17":346,"VIV20":349,"VIV34":92,"VIV35":125,"VIV36":306,"GM_2020_y":"Muy bajo","Latitud":18.70040443,"Longitud":-99.15200065},
+            {"CVEGEO":170250012,"Municipio":"Tlaquiltenango","Poligono":14,"Localidad":"Lorenzo Vázquez (Santa Cruz)","POB1":837,"POB42":429,"POB84":408,"EDU28":64,"EDU34":238,"ECO1":400,"ECO7":26,"ECO13":16,"ECO28":243,"AFRO1":0,"DISC4":8,"DISC5":12,"DISC6":27,"SALUD1":715,"SALUD2":122,"SALUD3":127,"SALUD4":7,"SALUD6":2,"VIV0":344,"VIV7":10,"VIV10":74,"VIV27":219,"VIV28":118,"VIV29":73,"VIV81":35,"VIV15":240,"VIV17":210,"VIV20":214,"VIV34":19,"VIV35":112,"VIV36":139,"GM_2020_y":"Bajo","Latitud":18.573944,"Longitud":-99.073561},
+            {"CVEGEO":170250038,"Municipio":"Tlaquiltenango","Poligono":14,"Localidad":"Los Dormidos","POB1":38,"POB42":17,"POB84":21,"EDU28":3,"EDU34":11,"ECO1":20,"ECO7":2,"ECO13":2,"ECO28":10,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":29,"SALUD2":9,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":17,"VIV7":6,"VIV10":5,"VIV27":3,"VIV28":1,"VIV29":2,"VIV81":1,"VIV15":10,"VIV17":7,"VIV20":8,"VIV34":0,"VIV35":0,"VIV36":9,"GM_2020_y":"Alto","Latitud":18.60427,"Longitud":-99.079036},
+            {"CVEGEO":170260006,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Nacatongo","POB1":1136,"POB42":571,"POB84":565,"EDU28":54,"EDU34":214,"ECO1":626,"ECO7":53,"ECO13":36,"ECO28":208,"AFRO1":37,"DISC4":11,"DISC5":46,"DISC6":24,"SALUD1":824,"SALUD2":312,"SALUD3":128,"SALUD4":41,"SALUD6":3,"VIV0":378,"VIV7":18,"VIV10":139,"VIV27":237,"VIV28":159,"VIV29":90,"VIV81":35,"VIV15":307,"VIV17":292,"VIV20":277,"VIV34":61,"VIV35":62,"VIV36":266,"GM_2020_y":"Bajo","Latitud":18.946595,"Longitud":-98.980044},
+            {"CVEGEO":170260017,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia Texalo (La Cerámica)","POB1":361,"POB42":194,"POB84":167,"EDU28":14,"EDU34":73,"ECO1":197,"ECO7":5,"ECO13":10,"ECO28":100,"AFRO1":3,"DISC4":1,"DISC5":5,"DISC6":10,"SALUD1":244,"SALUD2":113,"SALUD3":67,"SALUD4":25,"SALUD6":0,"VIV0":155,"VIV7":9,"VIV10":34,"VIV27":75,"VIV28":50,"VIV29":43,"VIV81":12,"VIV15":94,"VIV17":93,"VIV20":90,"VIV34":30,"VIV35":31,"VIV36":89,"GM_2020_y":"Muy bajo","Latitud":18.941981,"Longitud":-98.976336},
+            {"CVEGEO":170260034,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia Joyas del Astillero","POB1":93,"POB42":42,"POB84":51,"EDU28":9,"EDU34":26,"ECO1":37,"ECO7":5,"ECO13":1,"ECO28":29,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":2,"SALUD1":55,"SALUD2":38,"SALUD3":6,"SALUD4":3,"SALUD6":0,"VIV0":139,"VIV7":7,"VIV10":9,"VIV27":20,"VIV28":9,"VIV29":14,"VIV81":4,"VIV15":23,"VIV17":13,"VIV20":22,"VIV34":6,"VIV35":4,"VIV36":25,"GM_2020_y":"Alto","Latitud":18.938765,"Longitud":-98.950523},
+            {"CVEGEO":170260018,"Municipio":"Tlayacapan","Poligono":15,"Localidad":"Colonia 3 de Mayo","POB1":273,"POB42":133,"POB84":140,"EDU28":22,"EDU34":69,"ECO1":100,"ECO7":11,"ECO13":7,"ECO28":91,"AFRO1":0,"DISC4":2,"DISC5":4,"DISC6":2,"SALUD1":200,"SALUD2":73,"SALUD3":2,"SALUD4":11,"SALUD6":0,"VIV0":72,"VIV7":4,"VIV10":31,"VIV27":36,"VIV28":24,"VIV29":23,"VIV81":6,"VIV15":55,"VIV17":42,"VIV20":45,"VIV34":6,"VIV35":7,"VIV36":50,"GM_2020_y":"Medio","Latitud":18.97855611,"Longitud":-98.9651899},
+            {"CVEGEO":170280085,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Colonia Loma Bonita","POB1":12,"POB42":5,"POB84":7,"EDU28":0,"EDU34":2,"ECO1":6,"ECO7":0,"ECO13":0,"ECO28":4,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":6,"SALUD2":6,"SALUD3":6,"SALUD4":0,"SALUD6":0,"VIV0":4,"VIV7":0,"VIV10":0,"VIV27":3,"VIV28":3,"VIV29":2,"VIV81":2,"VIV15":3,"VIV17":3,"VIV20":3,"VIV34":0,"VIV35":1,"VIV36":2,"GM_2020_y":"Muy bajo","Latitud":18.812272,"Longitud":-99.267215},
+            {"CVEGEO":170280074,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Loma del Tepehuaje","POB1":15,"POB42":7,"POB84":8,"EDU28":0,"EDU34":9,"ECO1":7,"ECO7":0,"ECO13":1,"ECO28":5,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":8,"SALUD2":7,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":10,"VIV7":1,"VIV10":2,"VIV27":3,"VIV28":1,"VIV29":2,"VIV81":0,"VIV15":3,"VIV17":0,"VIV20":1,"VIV34":1,"VIV35":0,"VIV36":3,"GM_2020_y":"Muy alto","Latitud":18.808304,"Longitud":-99.261274},
+            {"CVEGEO":170280075,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Plan de Tlazala","POB1":25,"POB42":11,"POB84":14,"EDU28":2,"EDU34":7,"ECO1":14,"ECO7":3,"ECO13":2,"ECO28":5,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":17,"SALUD2":8,"SALUD3":3,"SALUD4":0,"SALUD6":0,"VIV0":9,"VIV7":1,"VIV10":3,"VIV27":7,"VIV28":3,"VIV29":5,"VIV81":1,"VIV15":7,"VIV17":7,"VIV20":7,"VIV34":1,"VIV35":1,"VIV36":6,"GM_2020_y":"Bajo","Latitud":18.799124,"Longitud":-99.25071},
+            {"CVEGEO":170280076,"Municipio":"Xochitepec","Poligono":16,"Localidad":"La Presa","POB1":28,"POB42":10,"POB84":18,"EDU28":6,"EDU34":6,"ECO1":14,"ECO7":7,"ECO13":0,"ECO28":4,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":23,"SALUD2":5,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":6,"VIV7":1,"VIV10":3,"VIV27":3,"VIV28":0,"VIV29":0,"VIV81":0,"VIV15":4,"VIV17":2,"VIV20":2,"VIV34":0,"VIV35":0,"VIV36":3,"GM_2020_y":"Muy alto","Latitud":18.793698,"Longitud":-99.257271},
+            {"CVEGEO":170280111,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Colonia las Flores","POB1":906,"POB42":452,"POB84":454,"EDU28":27,"EDU34":273,"ECO1":446,"ECO7":17,"ECO13":32,"ECO28":248,"AFRO1":46,"DISC4":5,"DISC5":29,"DISC6":13,"SALUD1":540,"SALUD2":364,"SALUD3":149,"SALUD4":22,"SALUD6":6,"VIV0":317,"VIV7":41,"VIV10":110,"VIV27":198,"VIV28":100,"VIV29":72,"VIV81":40,"VIV15":222,"VIV17":197,"VIV20":212,"VIV34":36,"VIV35":43,"VIV36":206,"GM_2020_y":"Bajo","Latitud":18.809918,"Longitud":-99.252455},
+            {"CVEGEO":170280073,"Municipio":"Xochitepec","Poligono":16,"Localidad":"Loma el Encanto","POB1":226,"POB42":117,"POB84":109,"EDU28":11,"EDU34":49,"ECO1":117,"ECO7":6,"ECO13":6,"ECO28":44,"AFRO1":4,"DISC4":6,"DISC5":10,"DISC6":7,"SALUD1":156,"SALUD2":70,"SALUD3":54,"SALUD4":4,"SALUD6":2,"VIV0":87,"VIV7":10,"VIV10":27,"VIV27":45,"VIV28":31,"VIV29":25,"VIV81":7,"VIV15":56,"VIV17":44,"VIV20":52,"VIV34":7,"VIV35":6,"VIV36":53,"GM_2020_y":"Medio","Latitud":18.79538362,"Longitud":-99.25043255},
+            {"CVEGEO":170290014,"Municipio":"Yautepec","Poligono":17,"Localidad":"San Isidro","POB1":1153,"POB42":599,"POB84":554,"EDU28":69,"EDU34":202,"ECO1":559,"ECO7":29,"ECO13":20,"ECO28":338,"AFRO1":369,"DISC4":5,"DISC5":19,"DISC6":45,"SALUD1":808,"SALUD2":344,"SALUD3":209,"SALUD4":38,"SALUD6":1,"VIV0":525,"VIV7":18,"VIV10":111,"VIV27":282,"VIV28":185,"VIV29":115,"VIV81":21,"VIV15":316,"VIV17":307,"VIV20":306,"VIV34":68,"VIV35":90,"VIV36":281,"GM_2020_y":"Muy bajo","Latitud":18.822442,"Longitud":-99.094012},
+            {"CVEGEO":170290117,"Municipio":"Yautepec","Poligono":17,"Localidad":"El Fortín","POB1":208,"POB42":104,"POB84":104,"EDU28":13,"EDU34":71,"ECO1":92,"ECO7":11,"ECO13":3,"ECO28":66,"AFRO1":11,"DISC4":1,"DISC5":5,"DISC6":8,"SALUD1":130,"SALUD2":78,"SALUD3":10,"SALUD4":17,"SALUD6":0,"VIV0":89,"VIV7":13,"VIV10":24,"VIV27":41,"VIV28":17,"VIV29":18,"VIV81":5,"VIV15":49,"VIV17":15,"VIV20":43,"VIV34":3,"VIV35":5,"VIV36":46,"GM_2020_y":"Alto","Latitud":18.825045,"Longitud":-99.104388},
+            {"CVEGEO":170290133,"Municipio":"Yautepec","Poligono":17,"Localidad":"Campo la Tehuixtlera","POB1":227,"POB42":114,"POB84":113,"EDU28":15,"EDU34":58,"ECO1":113,"ECO7":11,"ECO13":5,"ECO28":74,"AFRO1":17,"DISC4":2,"DISC5":4,"DISC6":7,"SALUD1":141,"SALUD2":86,"SALUD3":44,"SALUD4":6,"SALUD6":1,"VIV0":140,"VIV7":9,"VIV10":23,"VIV27":49,"VIV28":31,"VIV29":21,"VIV81":10,"VIV15":57,"VIV17":15,"VIV20":61,"VIV34":3,"VIV35":2,"VIV36":57,"GM_2020_y":"Medio","Latitud":18.842899,"Longitud":-99.104523},
+            {"CVEGEO":170290172,"Municipio":"Yautepec","Poligono":17,"Localidad":"El Fortín Dos","POB1":52,"POB42":31,"POB84":21,"EDU28":6,"EDU34":19,"ECO1":23,"ECO7":2,"ECO13":0,"ECO28":15,"AFRO1":10,"DISC4":0,"DISC5":2,"DISC6":2,"SALUD1":20,"SALUD2":32,"SALUD3":6,"SALUD4":2,"SALUD6":0,"VIV0":23,"VIV7":4,"VIV10":5,"VIV27":8,"VIV28":3,"VIV29":7,"VIV81":0,"VIV15":14,"VIV17":5,"VIV20":13,"VIV34":0,"VIV35":0,"VIV36":15,"GM_2020_y":"Alto","Latitud":18.831632,"Longitud":-99.105726},
+            {"CVEGEO":170300015,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Texcala","POB1":1812,"POB42":917,"POB84":895,"EDU28":115,"EDU34":402,"ECO1":1038,"ECO7":57,"ECO13":61,"ECO28":339,"AFRO1":10,"DISC4":9,"DISC5":26,"DISC6":39,"SALUD1":1394,"SALUD2":417,"SALUD3":75,"SALUD4":13,"SALUD6":8,"VIV0":584,"VIV7":26,"VIV10":211,"VIV27":249,"VIV28":171,"VIV29":183,"VIV81":118,"VIV15":483,"VIV17":474,"VIV20":401,"VIV34":31,"VIV35":46,"VIV36":424,"GM_2020_y":"Bajo","Latitud":18.934575,"Longitud":-98.796261},
+            {"CVEGEO":170300016,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Tezontetelco","POB1":235,"POB42":122,"POB84":113,"EDU28":16,"EDU34":88,"ECO1":147,"ECO7":7,"ECO13":11,"ECO28":38,"AFRO1":1,"DISC4":2,"DISC5":3,"DISC6":7,"SALUD1":98,"SALUD2":137,"SALUD3":2,"SALUD4":1,"SALUD6":0,"VIV0":90,"VIV7":6,"VIV10":20,"VIV27":46,"VIV28":31,"VIV29":42,"VIV81":24,"VIV15":65,"VIV17":66,"VIV20":54,"VIV34":6,"VIV35":0,"VIV36":63,"GM_2020_y":"Bajo","Latitud":18.931712,"Longitud":-98.810118},
+            {"CVEGEO":170300020,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Los Capulines","POB1":365,"POB42":180,"POB84":185,"EDU28":29,"EDU34":81,"ECO1":190,"ECO7":16,"ECO13":13,"ECO28":79,"AFRO1":0,"DISC4":1,"DISC5":6,"DISC6":4,"SALUD1":239,"SALUD2":126,"SALUD3":3,"SALUD4":4,"SALUD6":0,"VIV0":109,"VIV7":18,"VIV10":48,"VIV27":33,"VIV28":28,"VIV29":32,"VIV81":10,"VIV15":92,"VIV17":11,"VIV20":31,"VIV34":2,"VIV35":0,"VIV36":84,"GM_2020_y":"Alto","Latitud":18.919654,"Longitud":-98.815897},
+            {"CVEGEO":170300026,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"Zacahuacatla","POB1":81,"POB42":38,"POB84":43,"EDU28":2,"EDU34":19,"ECO1":59,"ECO7":1,"ECO13":3,"ECO28":5,"AFRO1":0,"DISC4":1,"DISC5":1,"DISC6":1,"SALUD1":58,"SALUD2":23,"SALUD3":2,"SALUD4":3,"SALUD6":0,"VIV0":39,"VIV7":2,"VIV10":8,"VIV27":16,"VIV28":10,"VIV29":14,"VIV81":5,"VIV15":21,"VIV17":21,"VIV20":14,"VIV34":3,"VIV35":0,"VIV36":19,"GM_2020_y":"Bajo","Latitud":18.912821,"Longitud":-98.813228},
+            {"CVEGEO":170300031,"Municipio":"Yecapixtla","Poligono":18,"Localidad":"La Hacienda","POB1":75,"POB42":42,"POB84":33,"EDU28":4,"EDU34":20,"ECO1":44,"ECO7":3,"ECO13":1,"ECO28":10,"AFRO1":0,"DISC4":2,"DISC5":0,"DISC6":0,"SALUD1":38,"SALUD2":37,"SALUD3":4,"SALUD4":0,"SALUD6":0,"VIV0":32,"VIV7":2,"VIV10":14,"VIV27":14,"VIV28":5,"VIV29":10,"VIV81":3,"VIV15":19,"VIV17":20,"VIV20":14,"VIV34":2,"VIV35":0,"VIV36":20,"GM_2020_y":"Bajo","Latitud":18.922312,"Longitud":-98.807784},
+            {"CVEGEO":170310032,"Municipio":"Zacatepec","Poligono":19,"Localidad":"Ampliación Plutarco Elías Calles","POB1":21,"POB42":9,"POB84":12,"EDU28":1,"EDU34":10,"ECO1":13,"ECO7":1,"ECO13":2,"ECO28":2,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":4,"SALUD2":17,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":10,"VIV7":4,"VIV10":1,"VIV27":5,"VIV28":1,"VIV29":1,"VIV81":3,"VIV15":5,"VIV17":5,"VIV20":5,"VIV34":0,"VIV35":0,"VIV36":5,"GM_2020_y":"Medio","Latitud":18.670821,"Longitud":-99.212621},
+            {"CVEGEO":170310033,"Municipio":"Zacatepec","Poligono":19,"Localidad":"El Bonete","POB1":31,"POB42":17,"POB84":14,"EDU28":6,"EDU34":7,"ECO1":12,"ECO7":5,"ECO13":0,"ECO28":9,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":27,"SALUD2":4,"SALUD3":1,"SALUD4":0,"SALUD6":2,"VIV0":18,"VIV7":3,"VIV10":3,"VIV27":2,"VIV28":0,"VIV29":0,"VIV81":2,"VIV15":6,"VIV17":1,"VIV20":9,"VIV34":0,"VIV35":0,"VIV36":3,"GM_2020_y":"Muy alto","Latitud":18.673725,"Longitud":-99.197444},
+            {"CVEGEO":170330007,"Municipio":"Temoac","Poligono":20,"Localidad":"La Joya [Campo]","POB1":26,"POB42":14,"POB84":12,"EDU28":1,"EDU34":8,"ECO1":13,"ECO7":0,"ECO13":2,"ECO28":10,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":22,"SALUD2":4,"SALUD3":3,"SALUD4":7,"SALUD6":0,"VIV0":12,"VIV7":0,"VIV10":2,"VIV27":5,"VIV28":4,"VIV29":3,"VIV81":2,"VIV15":5,"VIV17":4,"VIV20":5,"VIV34":3,"VIV35":0,"VIV36":5,"GM_2020_y":"Bajo","Latitud":18.781684,"Longitud":-98.788481},
+            {"CVEGEO":170330014,"Municipio":"Temoac","Poligono":20,"Localidad":"El Tecorralito","POB1":5,"POB42":2,"POB84":3,"EDU28":0,"EDU34":4,"ECO1":4,"ECO7":1,"ECO13":0,"ECO28":1,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":4,"SALUD2":1,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":11,"VIV7":0,"VIV10":0,"VIV27":1,"VIV28":0,"VIV29":0,"VIV81":0,"VIV15":1,"VIV17":3,"VIV20":3,"VIV34":0,"VIV35":0,"VIV36":3,"GM_2020_y":"Alto","Latitud":18.777061,"Longitud":-98.792437},
+            {"CVEGEO":170330017,"Municipio":"Temoac","Poligono":20,"Localidad":"Barrio San Martín","POB1":24,"POB42":14,"POB84":10,"EDU28":2,"EDU34":3,"ECO1":9,"ECO7":0,"ECO13":0,"ECO28":6,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":3,"SALUD1":16,"SALUD2":8,"SALUD3":4,"SALUD4":11,"SALUD6":0,"VIV0":8,"VIV7":1,"VIV10":2,"VIV27":6,"VIV28":4,"VIV29":3,"VIV81":1,"VIV15":8,"VIV17":8,"VIV20":8,"VIV34":3,"VIV35":0,"VIV36":7,"GM_2020_y":"Muy bajo","Latitud":18.777527,"Longitud":-98.779047},
+            {"CVEGEO":170330020,"Municipio":"Temoac","Poligono":20,"Localidad":"Campo Santa Lucía","POB1":25,"POB42":8,"POB84":17,"EDU28":1,"EDU34":3,"ECO1":13,"ECO7":1,"ECO13":0,"ECO28":4,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":15,"SALUD2":10,"SALUD3":1,"SALUD4":8,"SALUD6":1,"VIV0":16,"VIV7":0,"VIV10":4,"VIV27":7,"VIV28":2,"VIV29":6,"VIV81":0,"VIV15":8,"VIV17":7,"VIV20":8,"VIV34":3,"VIV35":1,"VIV36":8,"GM_2020_y":"Bajo","Latitud":18.762684,"Longitud":-98.779519},
+            {"CVEGEO":170330022,"Municipio":"Temoac","Poligono":20,"Localidad":"Barrio San Martín","POB1":14,"POB42":8,"POB84":6,"EDU28":0,"EDU34":2,"ECO1":8,"ECO7":0,"ECO13":0,"ECO28":3,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":3,"SALUD2":11,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":7,"VIV7":0,"VIV10":1,"VIV27":3,"VIV28":2,"VIV29":0,"VIV81":3,"VIV15":3,"VIV17":1,"VIV20":2,"VIV34":1,"VIV35":0,"VIV36":3,"GM_2020_y":"Muy bajo","Latitud":18.769856,"Longitud":-98.789247},
+            {"CVEGEO":170340003,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Campo el Llanito","POB1":63,"POB42":35,"POB84":28,"EDU28":2,"EDU34":20,"ECO1":39,"ECO7":1,"ECO13":6,"ECO28":11,"AFRO1":7,"DISC4":0,"DISC5":2,"DISC6":0,"SALUD1":48,"SALUD2":15,"SALUD3":5,"SALUD4":1,"SALUD6":0,"VIV0":18,"VIV7":4,"VIV10":7,"VIV27":14,"VIV28":6,"VIV29":5,"VIV81":4,"VIV15":16,"VIV17":12,"VIV20":15,"VIV34":3,"VIV35":2,"VIV36":14,"GM_2020_y":"Bajo","Latitud":18.729847,"Longitud":-99.3359},
+            {"CVEGEO":170340004,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Campo la Candelaria","POB1":29,"POB42":16,"POB84":13,"EDU28":0,"EDU34":12,"ECO1":12,"ECO7":0,"ECO13":0,"ECO28":7,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":25,"SALUD2":4,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":9,"VIV7":2,"VIV10":1,"VIV27":5,"VIV28":1,"VIV29":0,"VIV81":1,"VIV15":7,"VIV17":7,"VIV20":7,"VIV34":0,"VIV35":1,"VIV36":7,"GM_2020_y":"Medio","Latitud":18.735344,"Longitud":-99.332552},
+            {"CVEGEO":170340005,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia 3 de Mayo","POB1":221,"POB42":116,"POB84":105,"EDU28":15,"EDU34":82,"ECO1":117,"ECO7":12,"ECO13":9,"ECO28":32,"AFRO1":0,"DISC4":2,"DISC5":1,"DISC6":3,"SALUD1":192,"SALUD2":29,"SALUD3":7,"SALUD4":1,"SALUD6":0,"VIV0":78,"VIV7":23,"VIV10":35,"VIV27":36,"VIV28":5,"VIV29":7,"VIV81":2,"VIV15":51,"VIV17":47,"VIV20":50,"VIV34":2,"VIV35":8,"VIV36":44,"GM_2020_y":"Medio","Latitud":18.73975,"Longitud":-99.326157},
+            {"CVEGEO":170340006,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia Benito Juárez","POB1":101,"POB42":53,"POB84":48,"EDU28":7,"EDU34":32,"ECO1":38,"ECO7":7,"ECO13":0,"ECO28":36,"AFRO1":0,"DISC4":0,"DISC5":3,"DISC6":0,"SALUD1":82,"SALUD2":19,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":36,"VIV7":8,"VIV10":14,"VIV27":14,"VIV28":5,"VIV29":6,"VIV81":0,"VIV15":21,"VIV17":14,"VIV20":16,"VIV34":2,"VIV35":1,"VIV36":20,"GM_2020_y":"Alto","Latitud":18.725195,"Longitud":-99.314661},
+            {"CVEGEO":170340007,"Municipio":"Coatetelco","Poligono":21,"Localidad":"Colonia San Isidro","POB1":13,"POB42":8,"POB84":5,"EDU28":1,"EDU34":5,"ECO1":5,"ECO7":1,"ECO13":0,"ECO28":5,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":0,"SALUD1":6,"SALUD2":7,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":15,"VIV7":1,"VIV10":2,"VIV27":4,"VIV28":0,"VIV29":1,"VIV81":1,"VIV15":4,"VIV17":1,"VIV20":4,"VIV34":0,"VIV35":1,"VIV36":4,"GM_2020_y":"Medio","Latitud":18.72163,"Longitud":-99.305718},
+            {"CVEGEO":170340012,"Municipio":"Coatetelco","Poligono":21,"Localidad":"General Pedro Saavedra","POB1":338,"POB42":180,"POB84":158,"EDU28":28,"EDU34":107,"ECO1":112,"ECO7":10,"ECO13":7,"ECO28":127,"AFRO1":2,"DISC4":2,"DISC5":4,"DISC6":9,"SALUD1":293,"SALUD2":45,"SALUD3":8,"SALUD4":1,"SALUD6":0,"VIV0":102,"VIV7":13,"VIV10":37,"VIV27":64,"VIV28":16,"VIV29":12,"VIV81":9,"VIV15":79,"VIV17":70,"VIV20":69,"VIV34":5,"VIV35":19,"VIV36":59,"GM_2020_y":"Medio","Latitud":18.738186,"Longitud":-99.326131},
+            {"CVEGEO":170340013,"Municipio":"Coatetelco","Poligono":21,"Localidad":"La Cuahulotera","POB1":18,"POB42":9,"POB84":9,"EDU28":2,"EDU34":10,"ECO1":12,"ECO7":1,"ECO13":1,"ECO28":3,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":17,"SALUD2":1,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":11,"VIV7":2,"VIV10":2,"VIV27":0,"VIV28":0,"VIV29":2,"VIV81":2,"VIV15":2,"VIV17":1,"VIV20":4,"VIV34":0,"VIV35":0,"VIV36":5,"GM_2020_y":"Muy alto","Latitud":18.722094,"Longitud":-99.287751},
+            {"CVEGEO":170350006,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Camino de San Juanes","POB1":19,"POB42":10,"POB84":9,"EDU28":4,"EDU34":8,"ECO1":9,"ECO7":2,"ECO13":1,"ECO28":6,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":2,"SALUD1":16,"SALUD2":3,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":8,"VIV7":0,"VIV10":3,"VIV27":4,"VIV28":0,"VIV29":1,"VIV81":3,"VIV15":5,"VIV17":2,"VIV20":5,"VIV34":0,"VIV35":1,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.667152,"Longitud":-99.243829},
+            {"CVEGEO":170350009,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Campo los Sauces","POB1":17,"POB42":5,"POB84":12,"EDU28":1,"EDU34":3,"ECO1":10,"ECO7":2,"ECO13":0,"ECO28":6,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":9,"SALUD2":8,"SALUD3":2,"SALUD4":0,"SALUD6":0,"VIV0":19,"VIV7":2,"VIV10":0,"VIV27":4,"VIV28":2,"VIV29":3,"VIV81":1,"VIV15":5,"VIV17":4,"VIV20":5,"VIV34":1,"VIV35":0,"VIV36":3,"GM_2020_y":"Muy bajo","Latitud":18.664559,"Longitud":-99.253969},
+            {"CVEGEO":170350010,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"La Pintora","POB1":165,"POB42":79,"POB84":86,"EDU28":15,"EDU34":47,"ECO1":86,"ECO7":6,"ECO13":4,"ECO28":48,"AFRO1":1,"DISC4":1,"DISC5":4,"DISC6":0,"SALUD1":95,"SALUD2":69,"SALUD3":42,"SALUD4":22,"SALUD6":0,"VIV0":70,"VIV7":22,"VIV10":15,"VIV27":35,"VIV28":19,"VIV29":13,"VIV81":12,"VIV15":45,"VIV17":12,"VIV20":44,"VIV34":3,"VIV35":5,"VIV36":33,"GM_2020_y":"Alto","Latitud":18.708168,"Longitud":-99.25268},
+            {"CVEGEO":170350015,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Morelos","POB1":19,"POB42":9,"POB84":10,"EDU28":0,"EDU34":2,"ECO1":9,"ECO7":0,"ECO13":0,"ECO28":5,"AFRO1":4,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":19,"SALUD2":0,"SALUD3":5,"SALUD4":1,"SALUD6":0,"VIV0":8,"VIV7":5,"VIV10":4,"VIV27":4,"VIV28":2,"VIV29":1,"VIV81":3,"VIV15":6,"VIV17":2,"VIV20":6,"VIV34":1,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.68214,"Longitud":-99.25697},
+            {"CVEGEO":170350018,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"El Faro","POB1":21,"POB42":13,"POB84":8,"EDU28":0,"EDU34":6,"ECO1":10,"ECO7":0,"ECO13":0,"ECO28":7,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":15,"SALUD2":6,"SALUD3":1,"SALUD4":0,"SALUD6":0,"VIV0":9,"VIV7":2,"VIV10":2,"VIV27":2,"VIV28":1,"VIV29":1,"VIV81":2,"VIV15":2,"VIV17":1,"VIV20":4,"VIV34":1,"VIV35":0,"VIV36":3,"GM_2020_y":"Alto","Latitud":18.673954,"Longitud":-99.257534},
+            {"CVEGEO":170350019,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Fábrica de Mármol (Kilómetro 2)","POB1":76,"POB42":36,"POB84":40,"EDU28":8,"EDU34":15,"ECO1":31,"ECO7":3,"ECO13":2,"ECO28":22,"AFRO1":0,"DISC4":0,"DISC5":1,"DISC6":1,"SALUD1":44,"SALUD2":32,"SALUD3":6,"SALUD4":0,"SALUD6":0,"VIV0":21,"VIV7":8,"VIV10":12,"VIV27":10,"VIV28":4,"VIV29":5,"VIV81":3,"VIV15":15,"VIV17":10,"VIV20":13,"VIV34":0,"VIV35":0,"VIV36":11,"GM_2020_y":"Alto","Latitud":18.669814,"Longitud":-99.257522},
+            {"CVEGEO":170350026,"Municipio":"Xoxocotla","Poligono":22,"Localidad":"Techichilco","POB1":42,"POB42":17,"POB84":25,"EDU28":4,"EDU34":10,"ECO1":18,"ECO7":3,"ECO13":0,"ECO28":15,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":0,"SALUD1":33,"SALUD2":9,"SALUD3":8,"SALUD4":0,"SALUD6":0,"VIV0":10,"VIV7":5,"VIV10":8,"VIV27":4,"VIV28":0,"VIV29":1,"VIV81":1,"VIV15":9,"VIV17":7,"VIV20":9,"VIV34":0,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.685411,"Longitud":-99.235123},
+            {"CVEGEO":170360003,"Municipio":"Hueyapan","Poligono":23,"Localidad":"Amialtenco","POB1":26,"POB42":14,"POB84":12,"EDU28":3,"EDU34":9,"ECO1":10,"ECO7":1,"ECO13":0,"ECO28":3,"AFRO1":0,"DISC4":1,"DISC5":1,"DISC6":0,"SALUD1":14,"SALUD2":12,"SALUD3":0,"SALUD4":0,"SALUD6":0,"VIV0":10,"VIV7":0,"VIV10":3,"VIV27":2,"VIV28":3,"VIV29":2,"VIV81":1,"VIV15":6,"VIV17":5,"VIV20":2,"VIV34":0,"VIV35":0,"VIV36":4,"GM_2020_y":"Alto","Latitud":18.86731,"Longitud":-98.708483},
+            {"CVEGEO":170360010,"Municipio":"Hueyapan","Poligono":23,"Localidad":"Matlacotla","POB1":45,"POB42":23,"POB84":22,"EDU28":1,"EDU34":17,"ECO1":27,"ECO7":0,"ECO13":4,"ECO28":7,"AFRO1":0,"DISC4":0,"DISC5":0,"DISC6":1,"SALUD1":20,"SALUD2":25,"SALUD3":0,"SALUD4":0,"SALUD6":1,"VIV0":19,"VIV7":4,"VIV10":4,"VIV27":8,"VIV28":4,"VIV29":2,"VIV81":0,"VIV15":11,"VIV17":10,"VIV20":7,"VIV34":1,"VIV35":1,"VIV36":9,"GM_2020_y":"Bajo","Latitud":18.869758,"Longitud":-98.697471}
+        ];
+
+        // --- MAP INSTANCES ---
+        let map;
+        let printMap;
+        let marker;
+        let currentData = null; 
+
+        // --- DOM ELEMENTS ---
+        const poligonoFilter = document.getElementById('poligono-filter');
+        const localidadFilter = document.getElementById('localidad-filter');
+        const eduContainer = document.getElementById('edu-container');
+        const ticContainer = document.getElementById('tic-container');
+        const demoContainer = document.getElementById('demo-container');
+        const healthContainer = document.getElementById('health-container');
+        const bienesServiciosContainer = document.getElementById('bienes-servicios-container');
+        const pobContainer = document.getElementById('pob-container');
+        const vivContainer = document.getElementById('viv-container');
+        const printButton = document.getElementById('print-button');
+        const localidadesListContainer = document.getElementById('localidades-list-container');
+
+        // --- FUNCTIONS ---
+
+        function initMap() {
+            const streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            });
+            map = L.map('map', {
+                center: [18.85, -99.15],
+                zoom: 9,
+                layers: [streetMap]
+            });
+            marker = L.marker([18.85, -99.15]).addTo(map).bindPopup("Seleccione una localidad.");
+        }
+
+        function populatePoligonoFilter() {
+            poligonoFilter.innerHTML = '<option value="TODOS">Todos los Polígonos</option>';
+            const poligonos = [...new Set(dataSet.map(item => item.Poligono))].filter(Boolean).sort((a, b) => a - b);
+            poligonos.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = `Polígono ${p}`;
+                poligonoFilter.appendChild(option);
+            });
+        }
+        
+        function updateLocalidadFilter() {
+            const selectedPoligono = poligonoFilter.value;
+            let availableLocalidades;
+            if (selectedPoligono === 'TODOS') {
+                availableLocalidades = dataSet;
+            } else {
+                availableLocalidades = dataSet.filter(item => item.Poligono === parseInt(selectedPoligono));
+            }
+            localidadFilter.innerHTML = '';
+            if (availableLocalidades.length > 0) {
+                availableLocalidades.forEach(l => {
+                    const option = document.createElement('option');
+                    option.value = l.CVEGEO;
+                    option.textContent = `${l.Localidad}`;
+                    localidadFilter.appendChild(option);
+                });
+            } else {
+                localidadFilter.innerHTML = '<option value="">No hay resultados</option>';
+            }
+            updateDashboard();
+        }
+
+        function clearDashboard() {
+            currentData = null;
+            document.getElementById('info-municipio').textContent = '—';
+            document.getElementById('info-marginacion').textContent = '—';
+            map.setView([18.85, -99.15], 9);
+            marker.setLatLng([18.85, -99.15]).bindPopup("Seleccione una localidad.");
+            updateInfoRows(pobContainer, {}, {});
+            updateInfoRows(vivContainer, {}, {});
+            updateInfoRows(eduContainer, {}, {});
+            updateInfoRows(ticContainer, {}, {}, false);
+            updateInfoRows(demoContainer, {}, {});
+            updateInfoRows(healthContainer, {}, {});
+            updateInfoRows(bienesServiciosContainer, {}, {}, false);
+            localidadesListContainer.innerHTML = '<li>Seleccione una localidad para empezar.</li>';
+        }
+        
+        function createInfoRow(label, value, percentage, color) {
+            const displayValue = (value === null || typeof value === 'undefined') ? 'N/D' : value.toLocaleString();
+            const percentageHtml = (percentage !== null && !isNaN(percentage))
+                ? `<span class="percentage">(${percentage.toFixed(1)}%)</span>`
+                : '';
+
+            return `
+                <div class="info-row">
+                    <span>${label}</span>
+                    <div class="flex items-baseline justify-end gap-3">
+                        ${percentageHtml}
+                        <strong class="info-value" style="color: ${color};">${displayValue}</strong>
+                    </div>
+                </div>`;
+        }
+        
+        function updateInfoRows(container, data, mapping, calculatePercentage = false, totalKey = 'VIV0') {
+            container.innerHTML = Object.entries(mapping).map(([label, { key, color }]) => {
+                const value = data[key];
+                let percentage = null;
+                const total = data[totalKey]
+                if (calculatePercentage && total > 0) {
+                    percentage = (value / total) * 100;
+                }
+                return createInfoRow(label, value, percentage, color);
+            }).join('');
+        }
+
+        function updateMunicipioInfo(selectedData) {
+            const municipio = selectedData.Municipio;
+            const localidadesDelMunicipio = dataSet.filter(item => item.Municipio === municipio);
+            
+            localidadesListContainer.innerHTML = ''; // Clear previous list
+            
+            localidadesDelMunicipio.forEach(loc => {
+                const li = document.createElement('li');
+                const button = document.createElement('button');
+                button.textContent = loc.Localidad;
+                button.dataset.cvegeo = loc.CVEGEO;
+                if (loc.CVEGEO === selectedData.CVEGEO) {
+                    button.classList.add('active');
+                }
+                button.addEventListener('click', (e) => {
+                    const cvegeo = e.target.dataset.cvegeo;
+                    localidadFilter.value = cvegeo;
+                    updateDashboard();
+                });
+                li.appendChild(button);
+                localidadesListContainer.appendChild(li);
+            });
+        }
+
+        function updateDashboard() {
+            const selectedCvegeo = parseInt(localidadFilter.value);
+            currentData = dataSet.find(item => item.CVEGEO === selectedCvegeo);
+
+            if (!currentData) {
+                clearDashboard();
+                return;
+            }
+
+            document.getElementById('info-municipio').textContent = currentData.Municipio || '—';
+            document.getElementById('info-marginacion').textContent = currentData.GM_2020_y || '—';
+
+            if (currentData.Latitud && currentData.Longitud) {
+                map.setView([currentData.Latitud, currentData.Longitud], 14);
+                marker.setLatLng([currentData.Latitud, currentData.Longitud]).bindPopup(`<b>${currentData.Localidad}</b>`).openPopup();
+            }
+            
+            updateMunicipioInfo(currentData);
+            
+            const totalDiscapacidad = (currentData.DISC4 || 0) + (currentData.DISC5 || 0) + (currentData.DISC6 || 0);
+
+            updateInfoRows(pobContainer, currentData, {
+                'Población Total': { key: 'POB1', color: 'var(--brand-dark-green)' },
+                'Mujeres': { key: 'POB42', color: 'var(--brand-purple)' },
+                'Hombres': { key: 'POB84', color: 'var(--brand-green)' }
+            }, true, 'POB1');
+
+             updateInfoRows(vivContainer, currentData, {
+                'Total Viviendas': { key: 'VIV0', color: 'var(--brand-dark-green)' },
+                'Piso de Tierra': { key: 'VIV7', color: 'var(--brand-brown)' },
+                'Con Hacinamiento': { key: 'VIV10', color: 'var(--brand-purple)' }
+            }, true, 'VIV0');
+            
+            updateInfoRows(eduContainer, currentData, {
+                'Analfabetas (15+)': { key: 'EDU28', color: 'var(--brand-brown)' },
+                'Básica Incompleta (15+)': { key: 'EDU34', color: 'var(--brand-purple)' },
+                'Ocupados sin Escolaridad': { key: 'ECO7', color: 'var(--brand-gold)' },
+                'Ocupados Sec. Incompleta': { key: 'ECO13', color: 'var(--brand-green)' }
+            });
+            updateInfoRows(ticContainer, currentData, {
+                'Con Celular': { key: 'VIV36', color: 'var(--brand-green)' },
+                'Con Computadora': { key: 'VIV34', color: 'var(--brand-gold)' },
+                'Con Tel. Fijo': { key: 'VIV35', color: 'var(--brand-dark-green)' }
+            }, true, 'VIV0');
+            updateInfoRows(demoContainer, {...currentData, totalDiscapacidad}, {
+                'Pob. Afromexicana': { key: 'AFRO1', color: 'var(--brand-green)' },
+                'Total con Discapacidad': { key: 'totalDiscapacidad', color: 'var(--brand-dark-green)' },
+                'Discapacidad (0-14 años)': { key: 'DISC4', color: 'var(--brand-purple)' },
+                'Discapacidad (15-59 años)': { key: 'DISC5', color: 'var(--brand-brown)' },
+                'Discapacidad (60+ años)': { key: 'DISC6', color: '#9CA3AF' }
+            });
+            updateInfoRows(healthContainer, currentData, {
+                'Total Afiliados': { key: 'SALUD1', color: 'var(--brand-green)' },
+                'Sin Afiliación': { key: 'SALUD2', color: 'var(--brand-brown)' },
+                'Afiliados al IMSS': { key: 'SALUD3', color: 'var(--brand-dark-green)' },
+                'Afiliados al ISSSTE': { key: 'SALUD4', color: 'var(--brand-gold)' },
+                'Afiliados a PEMEX/Marina': { key: 'SALUD6', color: 'var(--brand-purple)' }
+            }, true, 'POB1');
+            updateInfoRows(bienesServiciosContainer, currentData, {
+                'Refrigerador': { key: 'VIV27', color: 'var(--brand-green)' },
+                'Lavadora': { key: 'VIV28', color: 'var(--brand-gold)' },
+                'Automóvil': { key: 'VIV29', color: 'var(--brand-dark-green)' },
+                'Bicicleta': { key: 'VIV81', color: 'var(--brand-purple)' },
+                'Agua Entubada': { key: 'VIV17', color: 'var(--brand-green)' },
+                'Serv. Sanitario': { key: 'VIV20', color: 'var(--brand-gold)' },
+                'Energía Eléctrica': { key: 'VIV15', color: 'var(--brand-dark-green)' }
+            }, true, 'VIV0');
+        }
+        
+        // --- EVENT LISTENERS ---
+        poligonoFilter.addEventListener('change', updateLocalidadFilter);
+        localidadFilter.addEventListener('change', updateDashboard);
+        
+        printButton.addEventListener('click', () => {
+            if(currentData) {
+                document.getElementById('print-localidad').textContent = currentData.Localidad || 'N/D';
+                document.getElementById('print-municipio').textContent = currentData.Municipio || 'N/D';
+                document.getElementById('print-date').textContent = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+                
+                // Create static map for printing
+                const printMapContainer = document.getElementById('map-container-print');
+                printMapContainer.innerHTML = ''; // Clear previous map
+                if (printMap) { printMap.remove(); }
+                
+                printMap = L.map('map-container-print', {
+                    center: [currentData.Latitud, currentData.Longitud],
+                    zoom: 14,
+                    zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
+                    boxZoom: false, keyboard: false, tap: false, touchZoom: false,
+                });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(printMap);
+                L.marker([currentData.Latitud, currentData.Longitud]).addTo(printMap);
+
+                // Delay print to allow map tiles to load
+                setTimeout(() => {
+                    window.print();
+                }, 1000);
+
+            } else {
+                alert("Por favor, seleccione una localidad para generar un reporte.");
+            }
+        });
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            populatePoligonoFilter();
+            updateLocalidadFilter();
+        });
+
+    </script>
+</body>
+</html>
+
+
