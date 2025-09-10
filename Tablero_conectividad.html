@@ -1,0 +1,491 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Control: Conectividad Gubernamental - Morelos</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- LeafletJS (Mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Chart.js (Gráficas) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet" />
+
+    <style>
+        /* --- VARIABLES DE COLOR Y FUENTES GLOBALES --- */
+        :root {
+            --brand-green: #71785b;
+            --brand-gold: #bc9b73;
+            --brand-dark-green: #2E3B2B;
+            --brand-light-gray: #F8F9FA; /* Un gris más claro y limpio */
+            --brand-border: #E9ECEF;
+        }
+
+        body {
+            font-family: 'Roboto Condensed', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background-color: var(--brand-light-gray);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        /* --- ESTILOS PARA LA IMPRESIÓN --- */
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 9pt; }
+            .no-print { display: none !important; }
+            .print-header { display: flex !important; justify-content: space-between; align-items: center; border-bottom: 2px solid #444; padding-bottom: .3rem; margin-bottom: .5rem; }
+            .print-header img { height: 36px !important; }
+            .print-header-info h1 { font-size: 15pt !important; font-weight: 900; text-transform: uppercase; letter-spacing: .5px; margin: 0; }
+            .print-header-info p { font-size: 8pt; margin: 0; color: #555; }
+        }
+        
+        #map {
+            height: 400px;
+            border-radius: 0.75rem;
+            z-index: 0;
+        }
+        
+        @media (min-width: 1024px) {
+            #map { height: 100%; min-height: 480px; }
+        }
+
+        /* Estilos de Leaflet */
+        .leaflet-popup-content-wrapper { background: #ffffff; color: #374151; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .leaflet-popup-content { margin: 13px 10px; }
+        .leaflet-popup-tip { background: #ffffff; }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out { background-color: #ffffff !important; color: #374151 !important; border-radius: 0.5rem !important; border: 1px solid var(--brand-border) !important; }
+        .leaflet-control-attribution a { color: #6b7280; }
+        
+        /* Estilo para la tabla con zebra-striping */
+        #tablaDependencias tr:nth-child(even) {
+            background-color: #F9FAFB; /* gray-50 */
+        }
+    </style>
+</head>
+<body class="bg-[var(--brand-light-gray)] text-gray-800 antialiased">
+    <div class="container mx-auto p-4 md:p-6 lg:p-8">
+
+        <!-- Encabezado -->
+        <header class="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div>
+                 <h1 class="text-3xl font-bold" style="color:var(--brand-dark-green)">Tablero de Control</h1>
+                 <p class="text-gray-500 mt-1">Análisis de Conectividad Gubernamental: Red "La Tierra que nos Une"</p>
+            </div>
+            <figure class="flex items-center gap-4">
+                <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo Tierra que nos une" class="h-14" />
+                <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/ATD.svg" alt="Logo ATD" class="h-14" />
+            </figure>
+        </header>
+
+        <!-- Cabecera de Impresión (Oculta por defecto) -->
+        <header role="banner" class="print-header hidden">
+             <div class="flex items-center gap-4">
+                <img src="https://cdn.prod.website-files.com/66d75f3897a0c14fc42017af/67d124efdfc13b41bfb24b65_Logo_Inicio.svg" alt="Logo Tierra que nos une" />
+                <img src="https://rawcdn.githack.com/memolugo/DashboardATD/refs/heads/main/ATD.svg" alt="Logo ATD" />
+            </div>
+            <div class="print-header-info text-right">
+                <h1>Reporte de Conectividad</h1>
+                <p><strong>Fecha de Emisión:</strong> <span id="print-date"></span></p>
+                <p>Fuente: Datos Internos</p>
+            </div>
+        </header>
+        
+        <!-- Contenido Principal -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Columna Izquierda: Filtros y KPIs -->
+            <div class="lg:col-span-1 flex flex-col gap-8">
+                <!-- Filtros -->
+                <div class="bg-white p-6 rounded-xl border border-[var(--brand-border)] shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-900">Filtros de Análisis</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="filtroSecretaria" class="block text-sm font-medium text-gray-600 mb-1">Secretaría / Entidad</label>
+                            <select id="filtroSecretaria" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg p-2.5 focus:ring-2 focus:ring-[var(--brand-gold)] focus:border-[var(--brand-gold)] transition">
+                                <option value="todos">Todas las Secretarías</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filtroDependencia" class="block text-sm font-medium text-gray-600 mb-1">Dependencia Específica</label>
+                            <select id="filtroDependencia" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg p-2.5 focus:ring-2 focus:ring-[var(--brand-gold)] focus:border-[var(--brand-gold)] transition">
+                                <option value="todos">Todas las Dependencias</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Métricas Principales -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl border border-[var(--brand-border)] shadow-sm text-center">
+                        <p class="text-sm font-semibold text-gray-500">DEPENDENCIAS</p>
+                        <p id="totalDependencias" class="text-4xl font-extrabold mt-1" style="color:var(--brand-dark-green)">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-[var(--brand-border)] shadow-sm text-center">
+                        <p class="text-sm font-semibold text-gray-500">% CONECTIVIDAD</p>
+                        <p id="porcentajeConectividad" class="text-4xl font-extrabold mt-1" style="color:var(--brand-gold)">0%</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-[var(--brand-border)] shadow-sm text-center">
+                        <p class="text-sm font-semibold text-green-600">CONECTADAS</p>
+                        <p id="totalConectadas" class="text-4xl font-extrabold text-green-600 mt-1">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-[var(--brand-border)] shadow-sm text-center">
+                        <p class="text-sm font-semibold text-red-600">NO CONECTADAS</p>
+                        <p id="totalNoConectadas" class="text-4xl font-extrabold text-red-600 mt-1">0</p>
+                    </div>
+                </div>
+
+                <!-- Gráfica -->
+                <div class="bg-white p-6 rounded-xl border border-[var(--brand-border)] shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-900">Distribución de Conexión</h2>
+                    <canvas id="connectivityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Mapa y Tabla -->
+            <div class="lg:col-span-2 flex flex-col gap-8">
+                <!-- Mapa -->
+                <div class="bg-white p-4 rounded-xl border border-[var(--brand-border)] shadow-sm flex-grow">
+                     <h2 class="text-xl font-semibold mb-4 text-gray-900 px-2">Mapa de Ubicaciones</h2>
+                    <div id="map" class="w-full"></div>
+                </div>
+                <!-- Tabla -->
+                <div class="bg-white p-6 rounded-xl border border-[var(--brand-border)] shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-900">Detalle de Dependencias</h2>
+                    <div class="overflow-auto max-h-[450px]">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Dependencia</th>
+                                    <th scope="col" class="px-6 py-3 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaDependencias" class="font-medium">
+                                <!-- Filas generadas por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. DATA SOURCE ---
+            const rawDataString = `
+Jefatura de la Oficina de la Gubernatura	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732		18.91697924	-99.23661859	SI
+Agencia de Transformacion Digital	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732	https://maps.app.goo.gl/zPTUEYz9opSRDxD48	18.93925003	-99.22397619	SI
+Comunicación Social	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732	https://maps.app.goo.gl/9shUboQs1WFhwL1XA	18.91574956	-99.23775754	SI
+Coordinacion General de Movilidad y Transporte	https://maps.app.goo.gl/eDiF6eUyPDrWZhZK6	18.9244901	-99.21849341	https://maps.app.goo.gl/6sqnh8Lqi1ruYSHw5	18.91580031	-99.2377039	SI
+Dirección migrantes	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				SI
+Representación del Poder Ejecutivo de Morelos en la CDMX	SIN UBICACION	SIN UBICACION	SIN UBICACION				NO
+Secretaría de Gobierno	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				NO
+Defensoria	https://maps.app.goo.gl/3ehcA1Cfo2WFHSG88	18.92172294	-99.2279678				NO
+Instituto Estatal de Documentacion de Morelos	https://maps.app.goo.gl/aipVSz1yJrXp2FoE6	18.84354857	-99.19647498				NO
+Coordinacion Estatal de Proteccion Civil del Estado de Morelos	https://maps.app.goo.gl/BXJwTR2nWMRbETmv9	18.96093379	-99.23199111				NO
+Mecanismo de Proteccion a Periodistas y Personas Defensoras de Derechos Humanos	https://maps.app.goo.gl/5UwMeR4epBTRVN8W6	18.92287861	-99.23508346				NO
+Registro Civil	https://maps.app.goo.gl/QigUcQxijPE8dxrp8	18.91114956	-99.21070868				NO
+Sistema de Protección de Niñas, Niños y Adolescentes del Estado de Morelos	https://maps.app.goo.gl/gbhQHqyWtYTBchC5A	18.92143116	-99.23471119				NO
+Instituto de Servicios Registrales y Catastrales del Estado de Morelos	https://maps.app.goo.gl/8koaMnUuufJhjrq4A	18.91248322	-99.234571				NO
+Secretaría de Hacienda	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732	https://maps.app.goo.gl/CbiZsbdvVbXbmZtV7	18.91066022	-99.23156954	SI
+Subsecretaría de Ingresos	https://maps.app.goo.gl/7UPDDGrpYpAYN8gn8	18.91060478	-99.2313303				NO
+Secretaría de Administración	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				SI
+Direccion de Contratacion de Bienes y Servicios	https://maps.app.goo.gl/R4A2W8dsEJ1MC8yy8	18.91869316	-99.23707104				NO
+Secretaría de Desarrollo Económico y del Trabajo	https://maps.app.goo.gl/4EzdN5nGyei6Z84CA	18.92112391	-99.23558446				NO
+Servicio Nacional de Empleo Morelos	https://maps.app.goo.gl/1EABsVo4DQ9fkaJ8A	18.96031729	-99.23262986				NO
+Comision Estatal de Mejora Regulatoria (CEMER)	https://maps.app.goo.gl/5UwMeR4epBTRVN8W6	18.92290905	-99.23502981				SI
+ICATMOR	https://maps.app.goo.gl/8sZ8B1hD6kXtkkAw8	18.94603008	-99.24361619				SI
+Consejo de Ciencia y Tecnologia del Estado de Morelos	https://maps.app.goo.gl/4Hna4fSwmCayVsyQ6	18.919846	-99.22722164				NO
+Fideicomiso Ejecutivo del Fondo de Competitividad y Promocion del Empleo	https://maps.app.goo.gl/tz4e58RZL7KFZTQ59	18.9241699	-99.218459				NO
+Fideicomiso Fondo de Desarrollo Empresarial y Promocion de la Inversion	https://maps.app.goo.gl/4EzdN5nGyei6Z84CA	18.92108331	-99.23553081				NO
+Centro de Conciliacion Laboral del Estado de Morelos	https://maps.app.goo.gl/usveNHb8MeNuG4Vs5	18.92395865	-99.20981022				NO
+Parque Científico	https://maps.app.goo.gl/qBuiqMnWQ8ptdaf46	18.74722787	-99.24465222				NO
+Fondo Morelos	https://maps.app.goo.gl/cPFH9kXE7FVZHxvn7	18.92449995	-99.21901502				NO
+Instituto de Economía y Bienestar	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				NO
+Secretaría de Bienestar	https://maps.app.goo.gl/Vyu5E3aXao9ehEWB8	18.92489604	-99.21894397				NO
+Comision Estatal de Evaluacion del Estado de Morelos	https://maps.app.goo.gl/JkkF415J47B8cQ5p8	18.92286641	-99.23494647				NO
+Instituto de las Personas Adolescentes y Jovenes	https://maps.app.goo.gl/13FKiQVDPv7oRVVM8	18.95682257	-99.24637362				NO
+Instituto de los Pueblos y Comunidades Indigenas	https://maps.app.goo.gl/jGqv2jJ6xhsU9QsT8	18.91390032	-99.2372696				NO
+Secretaría de Educación	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				SI
+Instituto de Educacion Basica del Estado de Morelos	https://maps.app.goo.gl/saaQPVPUritAftq86	18.95079818	-99.22269416				NO
+Instituto del Deporte y Cultura Fisica del Estado de Morelos	https://maps.app.goo.gl/5jQZeqWxKT7MgZiw7	18.91580661	-99.24362807				NO
+Instituto Nacional para la Educacion de los Adultos	https://maps.app.goo.gl/hRwciucvKpkBJJCs8	18.8778485	-99.21840458				NO
+Coordinacion Estatal del Subsistema de Preparatoria Abierta	https://maps.app.goo.gl/YcRHDsqx17YQeihy8	18.91805756	-99.19202838				NO
+Secretaría de Salud	https://maps.app.goo.gl/cne1C8nQe4sG7RLj8	18.9635294	-99.24901537				NO
+Comision Estatal de Arbitraje Medico de Morelos	https://maps.app.goo.gl/fd3AnJ8y3nuvgnKt7	18.94424377	-99.22398293				NO
+DIF Morelos	https://maps.app.goo.gl/6L7wekCrpAD87sWo7	18.91841756	-99.21684842				NO
+Secretaría de Cultura	https://maps.app.goo.gl/4EzdN5nGyei6Z84CA	18.92107993	-99.23554551				NO
+CMA	https://maps.app.goo.gl/FgTU937oCubqFMS37	18.92034881	-99.23764579				NO
+Museo Morelense de Arte Popular	https://maps.app.goo.gl/4EzdN5nGyei6Z84CA	18.92114421	-99.23553081				NO
+Instituto Morelense de Radio y Televisión	https://maps.app.goo.gl/UGBbBwqcbudN3D2g7	18.96999723	-99.23031546				NO
+Centro Cultural Teopanzolco	https://maps.app.goo.gl/ox68ikxj5zXQmiJeA	18.93107925	-99.22309165				NO
+Secretaría de Turismo	https://maps.app.goo.gl/gdp5wFXFzepqyQXc9	18.92185753	-99.23463765	https://maps.app.goo.gl/wmLPKfmC3hhGxCSaA	18.90975927	-99.23393668	NO
+Fideicomiso Lago de Tequesquitengo de Morelos	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				NO
+Fideicomiso Centro de Congresos y Convenciones Morelos	https://maps.app.goo.gl/tfSaNtT7NHSwSVhf9	18.74555873	-99.2460174				NO
+Agua Hedionda	https://maps.app.goo.gl/CoTgtCmM4goibLx18	18.81560398	-98.93025286				NO
+Secretaría de las Mujeres	https://maps.app.goo.gl/wh77Bv6G7ni2kpBS7	18.93539334	-99.22046152				NO
+Secretaría de Infraestructura	https://maps.app.goo.gl/a5NgudZN5EoKXas58	18.92198405	-99.23497732				SI
+INEIEM	https://maps.app.goo.gl/77gwxZBE9XmAp5WZA	18.97098537	-99.24502729				NO
+Secretaría de Seguridad y Proteccion Ciudadana Pública	https://maps.app.goo.gl/DPTGPif5mjyEG2ko8	18.82578271	-99.22007668				NO
+Secretariado Ejecutivo del Sistema Estatal de Seguridad Pública	https://maps.app.goo.gl/xFbomLzxgoXNTQSR8	18.96605486	-99.23196459				NO
+Secretaria de Desarrollo Sustentable	https://maps.app.goo.gl/h3DW4M7PqauCYTEk8	18.90964892	-99.22836311				NO
+Procuraduria de Proteccion al Ambiente del Estado de Morelos	https://maps.app.goo.gl/3y5Ke13QCYRrirCa7	18.91962716	-99.20961387				NO
+Comision Estatal del Agua	https://maps.app.goo.gl/PRebcij35aWyTicm6	18.92596042	-99.21928346				NO
+Secretaria de la Contraloría	https://maps.app.goo.gl/R4A2W8dsEJ1MC8yy8	18.91871346	-99.23706031				SI
+Secretaría de Desarrollo Agropecuario	https://maps.app.goo.gl/sHYDRQUVBjn8zUF89	18.91697082	-99.22165656				NO
+Consejería Jurídica	https://maps.app.goo.gl/F4gdP9cWP9qCZrYMA	18.9321905	-99.2358862				SI
+Fondo Editorial del Estado de Morelos	https://maps.app.goo.gl/w3pGdwd4PT4qr4zd6	18.92251789	-99.2280184				NO
+Fiscalía Anticorrupción	https://maps.app.goo.gl/BtYyfWvrJx6MeZCx8	18.94200597	-99.22742898				NO
+Comision Ejecutiva de Atencion a Víctimas	https://maps.app.goo.gl/vLKgy52UqKZavePX7	18.99536312	-99.21383183				NO
+Sindicato de Trabajadores al Servicio del Poder Ejecutivo del Estado de Morelos	https://maps.app.goo.gl/fmsCN5zDrHiqsZk96	19.05767984	-99.25777714				NO
+`;
+            
+            // --- 2. DATA PROCESSING ---
+            const secretariasConocidas = [
+                "Jefatura de la Oficina de la Gubernatura", "Secretaría de Gobierno", "Secretaría de Hacienda", "Secretaría de Administración", "Secretaría de Desarrollo Económico y del Trabajo", "Secretaría de Bienestar", "Secretaría de Educación", "Secretaría de Salud", "Secretaría de Cultura", "Secretaría de Turismo", "Secretaría de las Mujeres", "Secretaría de Infraestructura", "Secretaría de Seguridad y Proteccion Ciudadana Pública", "Secretaria de Desarrollo Sustentable", "Secretaria de la Contraloría", "Secretaría de Desarrollo Agropecuario", "Consejería Jurídica"
+            ];
+            const otrasEntidadesSecretaria = "Organismos y Entidades Paraestatales"; 
+            const otrasEntidades = ["Fondo Editorial del Estado de Morelos", "Fiscalía Anticorrupción", "Comision Ejecutiva de Atencion a Víctimas", "Sindicato de Trabajadores al Servicio del Poder Ejecutivo del Estado de Morelos"];
+
+            let dbData = [];
+            let currentSecretaria = 'Desconocida';
+
+            rawDataString.trim().split('\n').forEach(line => {
+                const parts = line.split('\t');
+                const dependencia = parts[0].trim();
+                const isSecretaria = secretariasConocidas.find(s => dependencia === s);
+                if (isSecretaria) { currentSecretaria = isSecretaria; } 
+                else if (otrasEntidades.includes(dependencia)) { currentSecretaria = otrasEntidadesSecretaria; }
+                const conectado = parts[parts.length - 1].trim().toUpperCase() === 'SI';
+                const locations = [];
+                if (parts[2] && parts[3] && !isNaN(parseFloat(parts[2])) && !isNaN(parseFloat(parts[3]))) { locations.push({ url: parts[1] ? parts[1].trim() : '#', lat: parseFloat(parts[2]), lng: parseFloat(parts[3]) }); }
+                if (parts[5] && parts[6] && !isNaN(parseFloat(parts[5])) && !isNaN(parseFloat(parts[6]))) { locations.push({ url: parts[4] ? parts[4].trim() : '#', lat: parseFloat(parts[5]), lng: parseFloat(parts[6]) }); }
+                dbData.push({ secretaria: currentSecretaria, dependencia: dependencia, conectado: conectado, locations: locations });
+            });
+
+            // --- 3. UI ELEMENTS & MAP INITIALIZATION ---
+            const filtroSecretaria = document.getElementById('filtroSecretaria');
+            const filtroDependencia = document.getElementById('filtroDependencia');
+            const tablaBody = document.getElementById('tablaDependencias');
+            let map, markers, connectivityChart;
+
+            map = L.map('map', { zoomControl: false }).setView([18.85, -99.2], 10);
+
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 19
+            });
+
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            });
+            
+            streetLayer.addTo(map);
+
+            const baseMaps = {
+                "Calles": streetLayer,
+                "Satélite": satelliteLayer
+            };
+            L.control.layers(baseMaps).addTo(map);
+
+            L.control.zoom({ position: 'topright' }).addTo(map);
+            markers = L.layerGroup().addTo(map);
+            
+            const createIcon = (svg) => L.icon({ iconUrl: 'data:image/svg+xml;base64,' + btoa(svg), iconSize: [36, 36], iconAnchor: [18, 36], popupAnchor: [0, -36] });
+            const greenIcon = createIcon('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36"><path fill="#16a34a" d="M12,2C8.13,2,5,5.13,5,9c0,5.25,7,13,7,13s7-7.75,7-13C19,5.13,15.87,2,12,2Z"/><path fill="white" d="M12 11a1 1 0 1 1-1-1a1 1 0 0 1 1 1zM12 8a4 4 0 0 0-4 4 .5.5 0 0 0 1 0a3 3 0 0 1 6 0 .5.5 0 0 0 1 0a4 4 0 0 0-4-4zM12 6a6 6 0 0 0-6 6 .5.5 0 0 0 1 0a5 5 0 0 1 10 0 .5.5 0 0 0 1 0a6 6 0 0 0-6-6z"/></svg>');
+            const redIcon = createIcon('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36"><path fill="#dc2626" d="M12,2C8.13,2,5,5.13,5,9c0,5.25,7,13,7,13s7-7.75,7-13C19,5.13,15.87,2,12,2Z"/><g opacity=".6"><path fill="white" d="M12 11a1 1 0 1 1-1-1a1 1 0 0 1 1 1zM12 8a4 4 0 0 0-4 4 .5.5 0 0 0 1 0a3 3 0 0 1 6 0 .5.5 0 0 0 1 0a4 4 0 0 0-4-4zM12 6a6 6 0 0 0-6 6 .5.5 0 0 0 1 0a5 5 0 0 1 10 0 .5.5 0 0 0 1 0a6 6 0 0 0-6-6z"/></g><path d="M7 14L17 6" stroke="white" stroke-width="1.75" stroke-linecap="round"/></svg>');
+            
+            // --- 4. FUNCTIONS ---
+            function populateSecretariaFilter() {
+                [...new Set(dbData.map(item => item.secretaria))].sort().forEach(sec => {
+                    filtroSecretaria.appendChild(Object.assign(document.createElement('option'), { value: sec, textContent: sec }));
+                });
+            }
+
+            function populateDependenciaFilter(secretaria) {
+                filtroDependencia.innerHTML = '<option value="todos">Todas las Dependencias</option>';
+                const source = (!secretaria || secretaria === 'todos') ? dbData : dbData.filter(item => item.secretaria === secretaria);
+                [...new Set(source.map(item => item.dependencia))].sort().forEach(dep => {
+                    filtroDependencia.appendChild(Object.assign(document.createElement('option'), { value: dep, textContent: dep }));
+                });
+            }
+
+            function updateDashboard() {
+                const selectedSecretaria = filtroSecretaria.value;
+                const selectedDependencia = filtroDependencia.value;
+                let filteredData = dbData;
+                if (selectedSecretaria !== 'todos') filteredData = filteredData.filter(item => item.secretaria === selectedSecretaria);
+                if (selectedDependencia !== 'todos') filteredData = filteredData.filter(item => item.dependencia === selectedDependencia);
+                updateMetrics(filteredData);
+                updateTable(filteredData);
+                updateMap(filteredData);
+                updateChart(filteredData);
+            }
+
+            function updateMetrics(data) {
+                const total = data.length, conectadas = data.filter(item => item.conectado).length;
+                document.getElementById('totalDependencias').textContent = total;
+                document.getElementById('totalConectadas').textContent = conectadas;
+                document.getElementById('totalNoConectadas').textContent = total - conectadas;
+                document.getElementById('porcentajeConectividad').textContent = `${total > 0 ? ((conectadas / total) * 100).toFixed(0) : 0}%`;
+            }
+
+            function updateTable(data) {
+                tablaBody.innerHTML = '';
+                if(data.length === 0) {
+                    tablaBody.innerHTML = `<tr><td colspan="2" class="px-6 py-4 text-center">No hay datos para mostrar.</td></tr>`;
+                    return;
+                }
+                data.forEach(item => {
+                    const statusClass = item.conectado ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const statusText = item.conectado ? 'Conectado' : 'Sin Conexión';
+                    tablaBody.insertAdjacentHTML('beforeend', `
+                        <tr class="border-b border-[var(--brand-border)]">
+                            <td class="px-6 py-4 text-gray-900">${item.dependencia}</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full ${statusClass}">${statusText}</span>
+                            </td>
+                        </tr>`);
+                });
+            }
+            
+            function updateMap(data) {
+                markers.clearLayers();
+                const allCoords = [];
+                data.forEach(item => {
+                    item.locations.forEach(loc => {
+                        const marker = L.marker([loc.lat, loc.lng], { icon: item.conectado ? greenIcon : redIcon });
+                        marker.bindPopup(`
+                            <div class="font-sans">
+                                <h3 class="font-display font-bold text-md text-gray-900">${item.dependencia}</h3>
+                                <p class="text-sm text-gray-500">${item.secretaria}</p>
+                                <hr class="border-gray-200 my-2">
+                                <p><strong>Estado:</strong> <span style="color: ${item.conectado ? '#16a34a' : '#dc2626'}">${item.conectado ? 'Conectado' : 'Sin Conexión'}</span></p>
+                                ${loc.url !== '#' ? `<a href="${loc.url}" target="_blank" rel="noopener noreferrer" style="color:var(--brand-green)" class="hover:underline mt-2 block">Ver en Google Maps</a>` : ''}
+                            </div>`);
+                        markers.addLayer(marker);
+                        allCoords.push([loc.lat, loc.lng]);
+                    });
+                });
+                if (allCoords.length > 0) map.fitBounds(allCoords, { padding: [50, 50], maxZoom: 15 });
+                else map.setView([18.85, -99.2], 10);
+            }
+            
+            function updateChart(data) {
+                const conectadas = data.filter(item => item.conectado).length;
+                const noConectadas = data.length - conectadas;
+                const brandGold = getComputedStyle(document.documentElement).getPropertyValue('--brand-gold').trim();
+                const brandGreen = getComputedStyle(document.documentElement).getPropertyValue('--brand-green').trim();
+
+                const centerTextPlugin = {
+                    id: 'centerText',
+                    afterDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const { width, height } = chart.chartArea;
+                        const centerX = width / 2;
+                        const centerY = height / 2 + 30; // Ajuste para centrar verticalmente
+
+                        ctx.save();
+                        
+                        const dataPoints = chart.data.datasets[0].data;
+                        const total = dataPoints.reduce((a, b) => a + b, 0);
+                        if (total === 0) {
+                             ctx.font = "600 1rem 'Roboto Condensed', sans-serif";
+                             ctx.fillStyle = '#9ca3af'; // text-gray-400
+                             ctx.textAlign = 'center';
+                             ctx.fillText('No hay datos', centerX, centerY);
+                             ctx.restore();
+                             return;
+                        }
+                        const percentage = total > 0 ? ((dataPoints[0] / total) * 100).toFixed(0) : 0;
+                        
+                        // Estilo para el Porcentaje
+                        ctx.font = "bold 2.5rem 'Montserrat', sans-serif";
+                        ctx.fillStyle = brandGold;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`${percentage}%`, centerX, centerY - 15);
+                        
+                        // Estilo para la Etiqueta
+                        ctx.font = "600 0.9rem 'Roboto Condensed', sans-serif";
+                        ctx.fillStyle = '#6b7280'; // text-gray-500
+                        ctx.fillText('Conectividad', centerX, centerY + 20);
+                        
+                        ctx.restore();
+                    }
+                };
+
+                if (connectivityChart) {
+                    connectivityChart.data.datasets[0].data = [conectadas, noConectadas];
+                    connectivityChart.update();
+                } else {
+                    const ctx = document.getElementById('connectivityChart').getContext('2d');
+                    Chart.register(ChartDataLabels);
+                    connectivityChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Conectadas', 'No Conectadas'],
+                            datasets: [{
+                                data: [conectadas, noConectadas],
+                                backgroundColor: [brandGreen, '#ef4444'],
+                                borderColor: '#ffffff',
+                                borderWidth: 4,
+                                hoverBorderColor: '#F8F9FA'
+                            }]
+                        },
+                        plugins: [centerTextPlugin],
+                        options: {
+                            responsive: true,
+                            cutout: '70%',
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: { color: '#4b5563', font: { family: "'Roboto Condensed', sans-serif" }}
+                                },
+                                datalabels: {
+                                   display: false
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // --- 5. EVENT LISTENERS & INITIALIZATION ---
+            filtroSecretaria.addEventListener('change', (e) => {
+                populateDependenciaFilter(e.target.value);
+                filtroDependencia.value = 'todos';
+                updateDashboard();
+            });
+            filtroDependencia.addEventListener('change', updateDashboard);
+            document.getElementById('print-date').textContent = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+            populateSecretariaFilter();
+            populateDependenciaFilter('todos');
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
