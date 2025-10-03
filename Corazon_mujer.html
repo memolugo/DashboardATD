@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard: Corazón de Mujer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    body { font-family: 'Montserrat', sans-serif; background-color: #F3F4F6; }
+    .card { border-radius: 1rem; padding: 1rem; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
+    /* Utilidades de impresión */
+    .print-only { display: none; }
+    .no-print { display: initial; }
+
+    /* ======== VISTA DE IMPRESIÓN ======== */
+    @page {
+      size: Letter;              /* Tamaño Carta */
+      margin: 12mm;              /* Márgenes moderados */
+    }
+    @media print {
+      html, body { background:#fff !important; height:auto; }
+      /* Oculta UI interactiva y fondos de color */
+      .no-print,
+      header,                     /* Oculta el header completo en impresión */
+      #infoPanel,                 /* Panel lateral del mapa */
+      .leaflet-control-container, /* Controles + zoom del mapa */
+      .leaflet-bottom,            /* Attributions */
+      section.mt-6               /* Botones inferiores */
+      { display: none !important; }
+
+      /* Mostrar solo la sección de impresión */
+      .print-only { display: block !important; }
+
+      /* Tarjetas y textos sobrios en impresión */
+      .card {
+        box-shadow: none !important;
+        background: #fff !important;
+        border: 1px solid #DDD !important;
+      }
+      h1,h2,h3,h4,p,span,div,small,li,strong,b {
+        color:#111 !important;
+      }
+
+      /* Contenedor de la página de impresión en una sola hoja */
+      #printPage {
+        display: grid;
+        grid-template-rows: auto auto auto 1fr;
+        gap: 8px;
+      }
+
+      /* Encabezado de informe */
+      #printHeader {
+        border-bottom: 1px solid #E5E7EB;
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+      }
+      #printHeader h1 {
+        font-size: 18px;
+        line-height: 1.2;
+        margin: 0 0 4px;
+      }
+      #printHeader .meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+      }
+
+      /* Banda de filtro activo */
+      #printFiltro {
+        font-size: 13px;
+        padding: 6px 8px;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        background: #FAFAFA;
+      }
+
+      /* Grid principal: Mapa + KPIs + Gráficos */
+      #printGrid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 8px;
+        /* Orden:
+          - Mapa grande a la izquierda (dos filas)
+          - KPIs arriba a la derecha
+          - Gráficos en el resto
+        */
+        grid-template-areas:
+          "map kpis"
+          "map chart1"
+          "chart2 chart3";
+      }
+
+      /* Mapa compacto (altura fija para caber en 1 hoja) */
+      #mapPrintWrap { grid-area: map; }
+      #map { height: 360px !important; } /* altura acotada para caber en 1 página */
+
+      /* KPIs compactos */
+      #kpisPrint { grid-area: kpis; }
+      #kpisPrint .kpi {
+        border:1px solid #E5E7EB;
+        border-radius:12px;
+        padding:8px;
+      }
+      #kpisPrint h3 { font-size: 11px; margin-bottom: 4px; }
+      #kpisPrint .val { font-size: 18px; font-weight: 700; }
+
+      /* Gráficos con altura contenida */
+      #chart1Wrap { grid-area: chart1; }
+      #chart2Wrap { grid-area: chart2; }
+      #chart3Wrap { grid-area: chart3; }
+      #chart1Wrap canvas,
+      #chart2Wrap canvas,
+      #chart3Wrap canvas { height: 200px !important; max-height: 200px !important; }
+
+      /* Quitar márgenes exteriores extra de secciones en impresión */
+      .card { margin: 0 !important; padding: 10px !important; }
+
+      /* Evitar cortes de elementos */
+      *, *::before, *::after { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="p-4">
+
+  <!-- Header (solo pantalla) -->
+  <header class="bg-[#71785b] text-white p-4 rounded-lg mb-6 flex items-center justify-between no-print">
+    <div class="flex items-center space-x-4">
+      <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bcd33f06395760a7e8dca15f51fc8c446a02a0b1/ATD%205.png" class="h-12" alt="Logo ATD"/>
+      <div>
+        <h1 class="text-2xl font-bold">Dashboard: Corazón de Mujer</h1>
+        <p class="text-sm">Instituto de la Mujer · Gobierno del Estado de Morelos</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="badgeFiltro" class="hidden px-2 py-1 text-xs rounded bg-white/20">Filtro: <b id="badgeMunicipio"></b></span>
+      <select id="municipioFilter" class="p-2 rounded border text-black">
+        <option value="Todos">Todos los municipios</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- KPIs (pantalla) -->
+  <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 no-print">
+    <div class="card bg-[#2E3B2B] text-white">
+      <h2 class="font-bold">Beneficiarias</h2>
+      <p id="kpiBeneficiarias" class="text-2xl">0</p>
+    </div>
+    <div class="card bg-[#bc9b73] text-white">
+      <h2 class="font-bold">Cobertura %</h2>
+      <p id="kpiCobertura" class="text-2xl">0%</p>
+    </div>
+    <div class="card bg-[#773357] text-white">
+      <h2 class="font-bold">Mujeres 55–59</h2>
+      <p id="kpiObjetivo" class="text-2xl">0</p>
+    </div>
+    <div class="card bg-[#7C4A36] text-white">
+      <h2 class="font-bold">Municipios</h2>
+      <p id="kpiMunicipios" class="text-2xl">0</p>
+    </div>
+  </section>
+
+  <!-- Contenido (pantalla) -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
+    
+    <!-- Mapa (con panel lateral) -->
+    <div class="card">
+      <h2 class="font-bold mb-2">Mapa Geográfico</h2>
+      <div class="relative h-[420px]">
+        <div id="map" class="w-full h-full rounded-lg"></div>
+        <!-- Panel lateral de información -->
+        <div id="infoPanel" class="absolute top-2 right-2 w-80 max-w-[85vw] max-h-[380px] overflow-auto bg-white/95 backdrop-blur rounded-xl shadow p-4 border border-[#CBCABE] hidden">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-bold text-[#2E3B2B]" id="panelTitulo">Municipio</h3>
+            <button id="panelCerrar" class="text-sm text-[#773357] hover:underline">Cerrar</button>
+          </div>
+          <div id="panelContenido" class="text-sm space-y-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico edades -->
+    <div class="card">
+      <h2 class="font-bold mb-2">Edades actuales (55–60)</h2>
+      <canvas id="chartEdades"></canvas>
+    </div>
+
+    <!-- Afiliación salud -->
+    <div class="card">
+      <h2 class="font-bold mb-2">Afiliación a Salud</h2>
+      <canvas id="chartSalud"></canvas>
+    </div>
+
+    <!-- Comparativa Cobertura -->
+    <div class="card">
+      <h2 class="font-bold mb-2">Comparativa 55–59 vs Cobertura</h2>
+      <canvas id="chartCobertura"></canvas>
+    </div>
+
+    <!-- Nivel educativo (altura reducida) -->
+    <div class="card">
+      <h2 class="font-bold mb-2">Nivel Educativo</h2>
+      <div class="h-64">
+        <canvas id="chartEducacion"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Botones (pantalla) -->
+  <section class="mt-6 flex space-x-4 no-print">
+    <button onclick="window.print()" class="px-4 py-2 bg-[#71785b] text-white rounded">Imprimir Ficha</button>
+    <button onclick="downloadCSV()" class="px-4 py-2 bg-[#bc9b73] text-white rounded">Descargar CSV</button>
+  </section>
+
+  <!-- ======== CONTENIDO EXCLUSIVO PARA IMPRESIÓN ======== -->
+  <section id="printPage" class="print-only">
+    <!-- Encabezado de Informe -->
+    <div id="printHeader">
+      <h1>Informe · Corazón de Mujer</h1>
+      <div class="meta">
+        <div><strong>Fecha de generación:</strong> <span id="printFecha"></span></div>
+        <div><strong>Instituto de la Mujer · Gobierno del Estado de Morelos</strong></div>
+      </div>
+    </div>
+
+    <!-- Filtro Activo -->
+    <div id="printFiltro">
+      <strong>Municipio:</strong> <span id="printMunicipio">Todos</span>
+    </div>
+
+    <!-- Grid de contenido a imprimir -->
+    <div id="printGrid">
+      <!-- Mapa -->
+      <div id="mapPrintWrap" class="card">
+        <h3 class="font-semibold mb-1">Mapa Geográfico</h3>
+        <!-- Reutilizamos el mismo mapa (se redimensiona por CSS de impresión) -->
+        <div id="map" class="w-full rounded-lg"></div>
+      </div>
+
+      <!-- KPIs -->
+      <div id="kpisPrint" class="card">
+        <h3 class="font-semibold mb-2">KPIs Clave</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="kpi">
+            <h3>Beneficiarias</h3>
+            <div id="kpiPrintBeneficiarias" class="val">0</div>
+          </div>
+          <div class="kpi">
+            <h3>Cobertura %</h3>
+            <div id="kpiPrintCobertura" class="val">0%</div>
+          </div>
+          <div class="kpi">
+            <h3>Mujeres 55–59</h3>
+            <div id="kpiPrintObjetivo" class="val">0</div>
+          </div>
+          <div class="kpi">
+            <h3>Municipios</h3>
+            <div id="kpiPrintMunicipios" class="val">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico 1 -->
+      <div id="chart1Wrap" class="card">
+        <h3 class="font-semibold mb-2">Edades actuales (55–60)</h3>
+        <canvas id="chartEdades"></canvas>
+      </div>
+
+      <!-- Gráfico 2 -->
+      <div id="chart2Wrap" class="card">
+        <h3 class="font-semibold mb-2">Afiliación a Salud</h3>
+        <canvas id="chartSalud"></canvas>
+      </div>
+
+      <!-- Gráfico 3 -->
+      <div id="chart3Wrap" class="card">
+        <h3 class="font-semibold mb-2">Comparativa 55–59 vs Cobertura</h3>
+        <canvas id="chartCobertura"></canvas>
+      </div>
+    </div>
+  </section>
+
+<script>
+const SUPABASE_URL = "https://njnkxreaecyjcezcgxto.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qbmt4cmVhZWN5amNlemNneHRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0Mjk4NzcsImV4cCI6MjA3NTAwNTg3N30.yyDWmwz0EaX-0YalgnssWpi5FBAhsT47e8-waWeYYh4";
+const TABLE_NAME = "bd_corazon_mujer_normalizado";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ---------- Utilidades ----------
+const normalizeName = (s="") =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+
+// ------------- Estado global del filtro -------------
+let currentMunicipio = "Todos"; // Filtro Global
+const badgeFiltro = document.getElementById("badgeFiltro");
+const badgeMunicipio = document.getElementById("badgeMunicipio");
+
+// Variables del mapa
+let rawData = [];
+let map, geoLayer, selectedLayer = null;
+let byMunLayer = new Map();
+let mapMarkers = [];
+let lastLayerClickAt = 0;
+
+// Estilos
+const baseStyle = { color: "#ad1457", fillColor: "#f8bbd0", fillOpacity: 0.30, weight: 1 };
+const hoverStyle = { weight: 2, fillOpacity: 0.45 };
+const selectedStyle = { color: "#1E3A8A", fillColor: "#3B82F6", fillOpacity: 0.60, weight: 3 };
+
+// Inicializar mapa
+map = L.map("map", { zoomControl: true }).setView([18.9, -99.0], 8);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(map);
+
+// Cargar GeoJSON
+let geojsonData = null;
+fetch("MorelosgeosonEPSG4326.geojson")
+  .then(r => r.json())
+  .then(geojson => {
+    geojsonData = geojson;
+    geoLayer = L.geoJSON(geojson, {
+      style: baseStyle,
+      onEachFeature: (feature, layer) => {
+        const name = feature?.properties?.NOMGEO || "";
+        if (name) byMunLayer.set(name, layer);
+
+        layer.__selected = false;
+
+        layer.on({
+          mouseover: () => { if (!layer.__selected) layer.setStyle(hoverStyle); },
+          mouseout:  () => { if (!layer.__selected) geoLayer.resetStyle(layer); },
+          click:     (e) => {
+            L.DomEvent.stopPropagation(e);
+            lastLayerClickAt = Date.now();
+            selectLayerAndFilter(layer, feature);
+          }
+        });
+      }
+    }).addTo(map);
+  });
+
+// ----------- Datos y tablero -----------
+async function loadData() {
+  let { data, error } = await supabaseClient.from(TABLE_NAME).select("*");
+  if (error || !data || !data.length) {
+    console.warn("Error Supabase, usando demo:", error);
+    data = [
+      { municipio: "Cuernavaca", latitud: 18.93, longitud: -99.23, total_mujeres: 5678, mujeres_55_59: 11550,
+        edad_55: 900, edad_56: 1000, edad_57: 1100, edad_58: 1300, edad_59: 1200, edad_60: 1178,
+        imss: 2136, issste: 1200, imss_bienestar: 350, pemex: 40, sedena: 25, servicio_privado: 310, ninguno_x: 500,
+        primaria: 2200, secundaria: 2600, preparatoria: 1800, universidad: 2500
+      },
+      { municipio: "Jiutepec", latitud: 18.88, longitud: -99.18, total_mujeres: 3432, mujeres_55_59: 5981,
+        edad_55: 700, edad_56: 800, edad_57: 850, edad_58: 1000, edad_59: 1082, edad_60: 1000,
+        imss: 900, issste: 700, imss_bienestar: 120, pemex: 12, sedena: 10, servicio_privado: 150, ninguno_y: 300,
+        primaria: 1400, secundaria: 1600, medio_superior: 900, universidad: 1400
+      }
+    ];
+  }
+  rawData = data;
+  fillFilter();
+  setGlobalFilter("Todos"); // inicia tablero
+}
+loadData();
+
+// Llenar filtro municipios
+function fillFilter() {
+  const select = document.getElementById("municipioFilter");
+  select.querySelectorAll("option:not([value='Todos'])").forEach(o=>o.remove());
+  [...new Set(rawData.map(d => d.municipio))].sort().forEach(mun => {
+    const opt = document.createElement("option");
+    opt.value = mun;
+    opt.textContent = mun;
+    select.appendChild(opt);
+  });
+}
+
+// ===================== SELECCIÓN EN MAPA + FILTRO GLOBAL =====================
+function selectLayerAndFilter(layer, feature) {
+  const name = feature?.properties?.NOMGEO;
+  if (!name) return;
+
+  if (selectedLayer && selectedLayer !== layer) {
+    selectedLayer.__selected = false;
+    geoLayer.resetStyle(selectedLayer);
+  }
+
+  selectedLayer = layer;
+  layer.__selected = true;
+  layer.setStyle(selectedStyle);
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
+
+  const b = layer.getBounds();
+  map.fitBounds(b, { padding: [20, 20], animate: true, duration: 0.5 });
+
+  setGlobalFilter(name);
+}
+
+// ================= Filtro Global =================
+function setGlobalFilter(municipio) {
+  currentMunicipio = municipio || "Todos";
+  if (currentMunicipio === "Todos") {
+    badgeFiltro?.classList.add("hidden");
+  } else {
+    if (badgeMunicipio) badgeMunicipio.textContent = currentMunicipio;
+    badgeFiltro?.classList.remove("hidden");
+  }
+
+  const sel = document.getElementById("municipioFilter");
+  if (sel && sel.value !== currentMunicipio) sel.value = currentMunicipio;
+
+  highlightMunicipioOnMap(currentMunicipio);
+  updateDashboard(currentMunicipio);
+
+  // Sincroniza cabecera de impresión
+  const pm = document.getElementById("printMunicipio");
+  if (pm) pm.textContent = currentMunicipio;
+}
+
+function highlightMunicipioOnMap(nombre) {
+  if (nombre === "Todos") {
+    if (selectedLayer) {
+      selectedLayer.__selected = false;
+      geoLayer.resetStyle(selectedLayer);
+      selectedLayer = null;
+    }
+    if (geoLayer) map.fitBounds(geoLayer.getBounds(), { padding: [20,20] });
+    document.getElementById("infoPanel")?.classList.add("hidden");
+    return;
+  }
+
+  if (selectedLayer && selectedLayer.feature?.properties?.NOMGEO === nombre) {
+    renderMunicipioInfo(nombre);
+    return;
+  }
+
+  const key = [...byMunLayer.keys()].find(k => normalizeName(k) === normalizeName(nombre));
+  const layer = key ? byMunLayer.get(key) : null;
+  if (!layer) return;
+
+  if (selectedLayer && selectedLayer !== layer) {
+    selectedLayer.__selected = false;
+    geoLayer.resetStyle(selectedLayer);
+  }
+
+  selectedLayer = layer;
+  layer.__selected = true;
+  layer.setStyle(selectedStyle);
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
+
+  const b = layer.getBounds();
+  map.fitBounds(b, { padding: [20, 20], animate: true, duration: 0.5 });
+
+  renderMunicipioInfo(nombre);
+}
+
+// Clic en mapa (espacio vacío) limpia selección -> Todos
+map.on("click", () => {
+  if (Date.now() - lastLayerClickAt < 250) return;
+  setGlobalFilter("Todos");
+});
+
+// Select -> Filtro Global
+document.getElementById("municipioFilter").addEventListener("change", (e)=>{
+  setGlobalFilter(e.target.value);
+});
+
+// ----------- Panel lateral -----------
+const infoPanel = document.getElementById("infoPanel");
+const panelTitulo = document.getElementById("panelTitulo");
+const panelContenido = document.getElementById("panelContenido");
+document.getElementById("panelCerrar").addEventListener("click", ()=>setGlobalFilter("Todos"));
+
+function renderMunicipioInfo(nombre) {
+  panelTitulo.textContent = nombre;
+
+  const filas = rawData.filter(r => normalizeName(r.municipio) === normalizeName(nombre));
+  const d = filas.length ? filas[0] : {};
+  const pickNum = (v)=> (typeof v === "number" && !isNaN(v)) ? v : 0;
+
+  const beneficiarias = pickNum(d.total_mujeres);
+  const objetivo = pickNum(d.mujeres_55_59);
+  const cobertura = objetivo ? (beneficiarias*100/objetivo).toFixed(2) : "0.00";
+
+  const imss = pickNum(d.imss);
+  const issste = pickNum(d.issste);
+  const imb = pickNum(d.imss_bienestar);
+  const pemex = pickNum(d.pemex);
+  const sedena = pickNum(d.sedena);
+  const priv = pickNum(d.servicio_privado || d.servicioprivado);
+  const ning = pickNum(d.ninguno_y || d.ninguno_x || d.ninguno);
+
+  panelContenido.innerHTML = `
+    <div class="grid grid-cols-1 gap-1">
+      <div><span class="font-semibold text-[#71785b]">Beneficiarias:</span> ${beneficiarias.toLocaleString("es-MX")}</div>
+      <div><span class="font-semibold text-[#71785b]">Población 55–59:</span> ${objetivo.toLocaleString("es-MX")}</div>
+      <div><span class="font-semibold text-[#71785b]">Cobertura:</span> ${cobertura}%</div>
+      <hr class="my-2 border-[#CBCABE]">
+      <div class="font-semibold text-[#2E3B2B]">Afiliación a Salud (abs):</div>
+      <div>IMSS: ${imss.toLocaleString("es-MX")}</div>
+      <div>ISSSTE: ${issste.toLocaleString("es-MX")}</div>
+      <div>IMSS Bienestar: ${imb.toLocaleString("es-MX")}</div>
+      <div>PEMEX: ${pemex.toLocaleString("es-MX")}</div>
+      <div>SEDENA: ${sedena.toLocaleString("es-MX")}</div>
+      <div>Servicio privado: ${priv.toLocaleString("es-MX")}</div>
+      <div>Ninguno: ${ning.toLocaleString("es-MX")}</div>
+    </div>
+  `;
+  infoPanel.classList.remove("hidden");
+}
+
+// ---------- Lógica de tablero ----------
+function pickNum(...vals){ for (const v of vals) if (typeof v === "number" && !isNaN(v)) return v; return 0; }
+
+// Afiliación a salud (en %)
+const SALUD_LABELS = ["IMSS","ISSSTE","IMSS Bienestar","PEMEX","SEDENA","Servicio privado","Ninguno"];
+function updateSalud(datos) {
+  const absValues = [
+    datos.reduce((a,b)=>a+pickNum(b.imss),0),
+    datos.reduce((a,b)=>a+pickNum(b.issste),0),
+    datos.reduce((a,b)=>a+pickNum(b.imss_bienestar),0),
+    datos.reduce((a,b)=>a+pickNum(b.pemex),0),
+    datos.reduce((a,b)=>a+pickNum(b.sedena),0),
+    datos.reduce((a,b)=>a+pickNum(b.servicio_privado, b.servicioprivado),0),
+    datos.reduce((a,b)=>a+pickNum(b.ninguno_y, b.ninguno_x, b.ninguno),0)
+  ];
+  const total = absValues.reduce((a,b)=>a+b,0);
+  const pctValues = absValues.map(v => total ? +(v*100/total).toFixed(2) : 0);
+
+  chartSalud.data.labels = SALUD_LABELS;
+  chartSalud.data.datasets[0].data = pctValues;
+  chartSalud.update();
+
+  chartSalud.__abs = absValues;
+  chartSalud.__pct = pctValues;
+}
+
+// Educación (pantalla)
+const EDU_LABELS = ["Primaria","Secundaria","Medio superior","Superior"];
+function updateEducacion(datos) {
+  const primaria   = datos.reduce((a,b)=>a+pickNum(b.primaria),0);
+  const secundaria = datos.reduce((a,b)=>a+pickNum(b.secundaria),0);
+  const medio      = datos.reduce((a,b)=>a+pickNum(b.medio_superior, b.preparatoria),0);
+  const superior   = datos.reduce((a,b)=>a+pickNum(b.superior, b.universidad),0);
+
+  chartEducacion.data.labels = EDU_LABELS;
+  chartEducacion.data.datasets[0].data = [primaria, secundaria, medio, superior];
+  chartEducacion.update();
+}
+
+function updateDashboard(municipio) {
+  const datos = municipio==="Todos"
+    ? rawData
+    : rawData.filter(d=> normalizeName(d.municipio) === normalizeName(municipio));
+  
+  // KPIs
+  const totalBenef = datos.reduce((a,b)=>a+pickNum(b.total_mujeres),0);
+  const totalObj   = datos.reduce((a,b)=>a+pickNum(b.mujeres_55_59),0);
+  const cobertura  = totalObj ? (totalBenef/totalObj*100).toFixed(2) : 0;
+  document.getElementById("kpiBeneficiarias").textContent = totalBenef.toLocaleString("es-MX");
+  document.getElementById("kpiObjetivo").textContent = totalObj.toLocaleString("es-MX");
+  document.getElementById("kpiCobertura").textContent = cobertura+"%";
+  document.getElementById("kpiMunicipios").textContent = new Set(datos.map(d=>d.municipio)).size;
+
+  // Sincroniza los KPIs para impresión
+  document.getElementById("kpiPrintBeneficiarias").textContent = totalBenef.toLocaleString("es-MX");
+  document.getElementById("kpiPrintObjetivo").textContent = totalObj.toLocaleString("es-MX");
+  document.getElementById("kpiPrintCobertura").textContent = cobertura+"%";
+  document.getElementById("kpiPrintMunicipios").textContent = new Set(datos.map(d=>d.municipio)).size;
+
+  // Marcadores (pantalla)
+  if (mapMarkers) mapMarkers.forEach(m=>map.removeLayer(m));
+  mapMarkers = datos
+    .filter(d=>typeof d.latitud==="number" && typeof d.longitud==="number")
+    .map(d=> L.marker([d.latitud,d.longitud]).addTo(map).bindPopup(`<b>${d.municipio}</b><br>Beneficiarias: ${pickNum(d.total_mujeres).toLocaleString("es-MX")}`));
+
+  // Edades 60→55
+  updateChart(chartEdades, ["60","59","58","57","56","55"], 
+    ["edad_60","edad_59","edad_58","edad_57","edad_56","edad_55"].map(f=>datos.reduce((a,b)=>a+pickNum(b[f]),0)));
+
+  // Salud y Educación
+  updateSalud(datos);
+  updateEducacion(datos);
+
+  // Comparativa
+  updateChart(chartCobertura, ["Beneficiarias","Población objetivo 55–59"], [totalBenef, totalObj]);
+}
+
+// Helper para gráficos sencillos
+function updateChart(chart, labels, data){
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = data;
+  chart.update();
+}
+
+// Charts
+let chartEdades = new Chart(document.getElementById("chartEdades"), {
+  type:"bar",
+  data:{labels:[],datasets:[{label:"Mujeres",data:[],backgroundColor:"#773357"}]},
+  options:{indexAxis:"y", plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+});
+
+let chartSalud = new Chart(document.getElementById("chartSalud"), {
+  type:"bar",
+  data:{labels:[],datasets:[{label:"Afiliación (%)",data:[],backgroundColor:"#2E3B2B"}]},
+  options:{
+    indexAxis:"y",
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        callbacks:{
+          label:(ctx)=>{
+            const i = ctx.dataIndex;
+            const abs = (chartSalud.__abs?.[i] ?? 0).toLocaleString("es-MX");
+            const pct = (chartSalud.__pct?.[i] ?? 0).toFixed(2);
+            return `${abs} (${pct}%)`;
+          },
+          title:(ctx)=> SALUD_LABELS[ctx[0].dataIndex]
+        }
+      }
+    },
+    scales:{
+      x:{beginAtZero:true, max:100, ticks:{callback:(v)=>v+"%"}},
+      y:{ticks:{autoSkip:false}}
+    }
+  }
+});
+
+let chartCobertura = new Chart(document.getElementById("chartCobertura"), {
+  type:"bar",
+  data:{labels:[],datasets:[{label:"Comparativa",data:[],backgroundColor:"#bc9b73"}]},
+  options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+});
+
+let chartEducacion = new Chart(document.getElementById("chartEducacion"), {
+  type:"pie",
+  data:{labels:[],datasets:[{label:"Nivel educativo",data:[],backgroundColor:["#71785b","#bc9b73","#773357","#7C4A36"]}]},
+  options:{
+    maintainAspectRatio:false,
+    plugins:{
+      legend:{position:"bottom"},
+      tooltip:{callbacks:{
+        label:(ctx)=>{
+          const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+          const val = ctx.parsed;
+          const pct = total ? (val*100/total).toFixed(2) : 0;
+          return `${ctx.label}: ${val.toLocaleString("es-MX")} (${pct}%)`;
+        }
+      }}
+    }
+  }
+});
+
+// Exportar CSV (desde datos filtrados)
+function downloadCSV(){
+  let datos = currentMunicipio==="Todos"
+    ? rawData
+    : rawData.filter(d=>normalizeName(d.municipio)===normalizeName(currentMunicipio));
+  if(!datos.length){ alert("No hay datos para exportar"); return; }
+
+  const keys = Object.keys(datos[0]);
+  const esc = (v)=>{
+    if (v==null) return "";
+    const s = String(v);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+    return s;
+  };
+  const header = keys.map(esc).join(",");
+  const rows = datos.map(r => keys.map(k => esc(r[k])).join(",")).join("\n");
+  const csv = header + "\n" + rows;
+
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download="corazon_mujer.csv";
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* =========================
+   Modo impresión (JS hooks)
+   - Fecha del informe
+   - Municipio activo
+   - Gráficos en monocromo/ahorro tinta
+   ========================= */
+function setFechaImpresion() {
+  const el = document.getElementById("printFecha");
+  if (!el) return;
+  const now = new Date();
+  const f = now.toLocaleString("es-MX", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit"
+  });
+  el.textContent = f;
+}
+
+function setChartsMonochrome(on=true){
+  const monoColor = "#222";     // tinta negra/gris oscuro
+  const monoAlt   = "#666";     // gris medio
+  const save = (ch)=> {
+    if (!ch) return;
+    ch.__savedColors = (ch.data.datasets||[]).map(ds => ({
+      bg: ds.backgroundColor,
+      border: ds.borderColor
+    }));
+  };
+  const applyMono = (ch)=> {
+    if (!ch) return;
+    (ch.data.datasets||[]).forEach((ds,idx)=>{
+      ds.backgroundColor = Array.isArray(ds.backgroundColor)
+        ? ds.backgroundColor.map((_,i)=> i%2===0? monoColor : monoAlt)
+        : monoColor;
+      ds.borderColor = monoColor;
+    });
+    ch.update(0);
+  };
+  const restore = (ch)=> {
+    if (!ch || !ch.__savedColors) return;
+    (ch.data.datasets||[]).forEach((ds,idx)=>{
+      const sv = ch.__savedColors[idx] || {};
+      ds.backgroundColor = sv.bg ?? ds.backgroundColor;
+      ds.borderColor = sv.border ?? ds.borderColor;
+    });
+    ch.update(0);
+  };
+
+  const charts = [chartEdades, chartSalud, chartCobertura, chartEducacion];
+
+  if (on){
+    charts.forEach(save);
+    charts.forEach(applyMono);
+  } else {
+    charts.forEach(restore);
+  }
+}
+
+// Hooks nativos del navegador
+window.addEventListener("beforeprint", ()=>{
+  setFechaImpresion();
+  // Garantiza que el municipio se refleje
+  const pm = document.getElementById("printMunicipio");
+  if (pm) pm.textContent = currentMunicipio;
+
+  // Monocromo para ahorro de tinta
+  setChartsMonochrome(true);
+
+  // Ajustar mapa a sus bounds actuales para que se renderice correctamente en el tamaño de impresión
+  setTimeout(()=>{
+    try {
+      if (selectedLayer) {
+        map.fitBounds(selectedLayer.getBounds(), { padding:[10,10], animate:false });
+      } else if (geoLayer) {
+        map.fitBounds(geoLayer.getBounds(), { padding:[10,10], animate:false });
+      }
+      map.invalidateSize(false);
+    } catch(e){}
+  }, 50);
+});
+
+window.addEventListener("afterprint", ()=>{
+  // Restaurar colores originales de gráficos
+  setChartsMonochrome(false);
+  // Revalidar tamaño del mapa al volver
+  setTimeout(()=>{ try{ map.invalidateSize(false); }catch(e){} }, 50);
+});
+</script>
+
+</body>
+</html>
