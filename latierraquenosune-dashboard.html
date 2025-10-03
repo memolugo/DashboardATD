@@ -1,0 +1,974 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tablero Ejecutivo — Conectividad “La Tierra que nos Une”</title>
+
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            morelos: {
+              verde: '#71785b',
+              dorado: '#bc9b73',
+              texto:  '#2E3B2B'
+            }
+          },
+          fontFamily: {
+            montserrat: ['Montserrat', 'ui-sans-serif', 'system-ui'],
+            robocond: ['Roboto Condensed', 'ui-sans-serif', 'system-ui']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root { color-scheme: light; }
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Roboto Condensed', sans-serif;
+      color: #343a40;
+    }
+    .card { @apply bg-white rounded-xl shadow-md border border-gray-200 transition-all duration-300 p-4 md:p-5; }
+    .kpi-card { @apply bg-white rounded-xl shadow-md border border-gray-200 p-4 flex flex-col justify-between; }
+    .kpi-card:hover { @apply -translate-y-1 shadow-lg; }
+    #map { min-height: 500px; }
+    .leaflet-control-layers-expanded { font-family: 'Roboto Condensed', sans-serif; }
+    .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    .table-container { scroll-behavior: smooth; max-height: 400px; overflow-y: auto; }
+    .table th { @apply sticky top-0 bg-gray-50/95 backdrop-blur-sm p-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+    .table td { @apply p-3 border-t border-gray-200; }
+    .table tbody tr:nth-child(even) { background-color: #f8f9fa; }
+    .input { @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-morelos-dorado focus:ring focus:ring-morelos-dorado focus:ring-opacity-50 truncate; }
+    .header-gradient { background: linear-gradient(135deg, #71785b 0%, #2E3B2B 40%, #bc9b73 100%); }
+    .marker-svg { background: transparent; border: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); transition: transform 0.2s ease-in-out; }
+    .marker-svg:hover { transform: scale(1.1); }
+    .marker-cluster div { background: #71785b; color: #fff; font-weight: 700; border: 3px solid rgba(255,255,255,0.8); box-shadow: 0 6px 18px rgba(0,0,0,.2); text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+
+@media (max-width: 767px) {
+  #map { min-height: 60vh !important; }
+  .table-container { scroll-behavior: smooth; max-height: 45vh !important; }
+  .table { font-size: 0.9rem; }
+  .header-gradient { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  #map { min-height: 50vh !important; }
+  .table-container { scroll-behavior: smooth; max-height: 360px !important; }
+}
+@media (min-width: 1024px) {
+  #map { min-height: 500px !important; }
+}
+
+@media (max-width: 767px) {
+  .kpi-card { text-align: center; align-items: center; }
+  .kpi-card div { justify-content: center; }
+  #donut { margin: 0 auto; display: block; }
+  .card h2 { text-align: center; }
+  #secretariaSelect, #dependenciaSelect, #organismoSelect { text-align-last: center; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .kpi-card { text-align: center; align-items: center; }
+  #donut { margin: 0 auto; display: block; }
+}
+
+@media print {
+  @page { size: Letter; margin: 12mm; }
+  html, body { font-size: 10pt !important; line-height: 1.3 !important; }
+  main { margin-top: 22mm !important; margin-bottom: 12mm !important; padding: 0 !important; }
+  .card, .kpi-card { box-shadow: none !important; background: #fff !important; border-color: #e5e7eb !important; }
+  .card { margin: 3mm 0 !important; padding: 6mm !important; }
+  .kpi-card { padding: 6mm !important; text-align: center; }
+  .kpi-card .text-3xl { font-size: 13pt !important; }
+  .kpi-card .text-sm { font-size: 9pt !important; }
+  h1.print-title { font-size: 12pt !important; }
+  .ph-subtitle { font-size: 9pt !important; }
+  #print-header { padding: 4mm 0 2mm 0 !important; }
+  #print-footer { padding: 2mm 0 2mm 0 !important; font-size: 9.5pt !important; }
+  #map { display: none !important; }
+  #donut { max-width: 55mm !important; max-height: 55mm !important; margin: 0 auto !important; display: block !important; }
+  table.table { font-size: 9.5pt !important; border-collapse: collapse !important; width: 100% !important; }
+  .table th, .table td { padding: 5px 6px !important; border: 1px solid #e5e7eb !important; }
+  .table thead th { background: #f3f4f6 !important; color: #374151 !important; }
+  .card h2 { margin: 0 0 4mm 0 !important; }
+  .card, .kpi-card, .table-container, table.table, .table tbody tr { break-inside: avoid !important; }
+}
+
+.table { font-size: 0.85rem; }
+.table td, .table th { padding: 0.35rem 0.5rem; }
+.table thead th { font-size: 0.75rem; }
+
+@media print {
+  table.table { font-size: 8.6pt !important; }
+  .table th, .table td { padding: 3px 4px !important; }
+  .table td, .table th { word-break: break-word; white-space: normal; }
+  .card h2 { margin-bottom: 2mm !important; }
+}
+
+.dist-wrapper { display: flex !important; flex-direction: column !important; align-items: center !important; gap: 10px !important; }
+#donut { display:block; margin:0 auto; }
+.legend-list { width: 100%; display: flex !important; justify-content: center !important; }
+.legend-compact { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; text-align: center; }
+.legend-compact .lc-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #374151; }
+.legend-compact .lc-item .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.legend-compact .sep { color: #9ca3af; }
+@media print { .dist-wrapper { gap: 4mm !important; } .legend-compact { gap: 4mm; } .legend-compact .lc-item { font-size: 9.5pt; } .legend-compact .lc-item .dot { width: 8px; height: 8px; border-radius: 2px; } .legend-compact .sep { margin: 0 1mm; } }
+
+.legend-min { font-weight: 500; color: #4b5563; display: inline-flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; text-align: center; }
+.legend-min .sep { color: #9ca3af; }
+@media print { .legend-min { font-size: 9pt; color: #6b7280; gap: 4mm; } .legend-min .sep { margin: 0 1mm; } }
+
+.table thead th { text-align: left !important; font-size: 0.95rem !important; text-transform: none !important; letter-spacing: 0 !important; color: #2E3B2B !important; }
+
+.table thead th { text-align: left !important; font-size: 1.1rem !important; font-weight: 800 !important; color: #2E3B2B !important; border-bottom: 2px solid #e5e7eb !important; padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; }
+.table tbody td { font-size: 0.96rem; }
+
+.table tbody td:last-child { text-align: center !important; }
+@media (max-width: 767px) {
+  .table th:nth-child(1), .table td:nth-child(1) { width: 70%; }
+  .table th:nth-child(2), .table td:nth-child(2) { width: 30%; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .table th:nth-child(1), .table td:nth-child(1) { width: 65%; }
+  .table th:nth-child(2), .table td:nth-child(2) { width: 35%; }
+}
+  
+
+.filters-card { overflow: clip;  }
+.input { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+select.input { -webkit-appearance: none; appearance: none; background-clip: padding-box; }
+@supports (padding-top: env(safe-area-inset-top)) {
+  header.header-gradient { padding-top: calc(env(safe-area-inset-top) + 0.25rem) !important; }
+}
+@media (max-width: 640px) {
+  main { padding-top: 0.75rem !important; }
+  .filters-card label { font-size: 0.95rem !important; }
+  #secretariaSelect, #dependenciaSelect, #organismoSelect { font-size: 0.95rem !important; padding-right: 2.25rem !important; }
+  .filters-card .space-y-4 > div { margin-bottom: 0.5rem !important; }
+}
+
+#ltqnu-graficas .card, #ltqnu-equipos .card { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+
+#ltqnu-graficas .card, #ltqnu-equipos .card { margin-top: 0.15rem; margin-bottom: 0.15rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+#ltqnu-graficas h2, #ltqnu-equipos h2 { margin-bottom: 0.25rem !important; }
+
+#ltqnu-graficas .card, #ltqnu-equipos .card { margin-top: 0; margin-bottom: 0; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+#ltqnu-graficas h2, #ltqnu-equipos h2 { margin-bottom: 0.15rem !important; }
+#ltqnu-equipos { margin-top: 0.25rem !important; }
+
+#ltqnu-graficas .card h2 { margin-bottom: 0.35rem !important; }
+#ltqnu-graficas .card .table-container { max-height: 420px; }
+@media (max-width: 767px){ #ltqnu-graficas .card .table-container { max-height: 55vh; } }
+
+.ap-col span { display:inline-block; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+
+/* === MODO MÓVIL MINIMALISTA (≤640px) === */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  main {
+    padding: .5rem .75rem !important;
+  }
+  .grid {
+    gap: .5rem !important;
+  }
+  .card, .shadow, .rounded-xl {
+    margin: 0 !important;
+    padding: .75rem !important;
+    border-radius: .75rem !important;
+    box-shadow: none !important;
+  }
+  h1, h2, h3, h4, h5 {
+    font-size: 1rem !important;
+    margin-bottom: .25rem !important;
+  }
+  canvas, svg, table, .leaflet-container {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  .flex, .items-center, .justify-between {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .25rem !important;
+  }
+}
+
+
+
+/* Ocultar SOLO el gráfico de barras "Clientes por AP" en móvil y colapsar separación */
+@media (max-width: 640px) {
+  #graficaPorAP { display: none !important; }
+  #graficaPorAP + hr { display: none !important; }
+  /* compactar encabezado y descripción cuando no hay gráfico */
+  #ltqnu-ap .card h2 + p { margin-bottom: .25rem !important; }
+}
+
+</style>
+</head>
+<body class="font-robocond text-morelos-texto">
+  <header class="header-gradient text-white shadow-lg no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-center items-center">
+      <img src="https://rawcdn.githack.com/memolugo/DashboardATD/2402eb4b373b19be624febb7e4a1a34e2c69e684/ATD%205.png" alt="Logo Agencia de Transformación Digital" class="h-10 md:h-14">
+    </div>
+  </header>
+
+  <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <section id="ltqnu-live" class="mb-8">
+      <h2 class="font-montserrat text-2xl font-bold text-morelos-texto mb-4">Conectividad LTQNU (datos en vivo)</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="card p-5" style="border-top:6px solid #00723F">
+          <div class="text-gray-500 text-sm">Clientes Conectados</div>
+          <div id="kpi-conectados" class="text-4xl font-bold">—</div>
+        </div>
+        <div class="card p-5" style="border-top:6px solid #662D91">
+          <div class="text-gray-500 text-sm">Clientes en la Red LTQNU</div>
+          <div id="kpi-en-ltqnu" class="text-4xl font-bold">—</div>
+        </div>
+        <div class="card p-5" style="border-top:6px solid #0096A9">
+          <div class="text-gray-500 text-sm">Uso de la Red (24h)</div>
+          <div id="kpi-uso-red" class="text-4xl font-bold">—</div>
+        </div>
+      </div>
+      
+      
+      </section>
+
+    
+    
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+      <section class="lg:col-span-4 space-y-6">
+        <div class="card no-print filters-card">
+          <h2 class="font-montserrat text-xl font-bold text-morelos-texto mb-4">Filtros de Búsqueda</h2>
+          <div class="space-y-4">
+            <div>
+              <label for="secretariaSelect" class="text-base font-semibold text-gray-600">Secretaría</label>
+              <select id="secretariaSelect" class="input mt-1 text-base md:text-sm">
+                <option value="__ALL__">Todas las Secretarías</option>
+              </select>
+            </div>
+            <div>
+              <label for="dependenciaSelect" class="text-base font-semibold text-gray-600">Dependencia</label>
+              <select id="dependenciaSelect" class="input mt-1 text-base md:text-sm" disabled>
+                <option value="">Selecciona Secretaría u Organismo</option>
+              </select>
+            </div>
+            <div>
+              <label for="organismoSelect" class="text-base font-semibold text-gray-600">Organismos / otros:</label>
+              <select id="organismoSelect" class="input mt-1 text-base md:text-sm">
+                <option value="__ALL__">Todos</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 gap-4">
+          <div class="kpi-card">
+            <div class="text-2xl sm:text-3xl font-bold text-morelos-texto" id="kpiTotal">0</div>
+            <div class="text-sm font-semibold text-gray-500 mt-1">Dependencias Totales</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-2xl sm:text-3xl font-bold text-green-600" id="kpiConectadas">0</div>
+            <div class="text-sm font-semibold text-gray-500 mt-1">Conectadas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-2xl sm:text-3xl font-bold text-red-600" id="kpiNoConectadas">0</div>
+            <div class="text-sm font-semibold text-gray-500 mt-1">No Conectadas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-2xl sm:text-3xl font-bold text-black" id="kpiPorcentaje">0%</div>
+            <div class="text-sm font-semibold text-gray-500 mt-1">% de Conectividad</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="font-montserrat text-lg font-bold text-morelos-texto text-center mb-2">Distribución</h2>
+          <div class="dist-wrapper">
+            <div class="relative h-48 sm:h-56 md:h-60 flex items-center justify-center">
+              <canvas id="donut"></canvas>
+            </div>
+            <div id="donutLegend" class="legend-list"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="lg:col-span-8 space-y-6">
+        <div class="card no-print">
+          <div class="flex items-center justify-between px-1 pb-3">
+            <h2 class="font-montserrat text-xl font-bold text-morelos-texto">Mapa de Ubicaciones</h2>
+            <div id="mapInfo" class="text-sm text-gray-600 font-semibold"></div>
+          </div>
+          <div id="map" class="rounded-xl overflow-hidden border-4 border-morelos-verde shadow-lg bg-gradient-to-br from-gray-50 to-gray-100"></div>
+        </div>
+
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-montserrat text-xl font-bold text-morelos-texto">Detalle de Dependencias</h2>
+          </div>
+          <div class="table-container">
+            <table class="table w-full text-sm">
+              <thead>
+                <tr>
+                  <th>Dependencia</th>
+                  <th>Conectividad</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  
+    
+    <section id="ltqnu-ap" class="mb-10 mt-8">
+      <div class="card p-4">
+        <h2 class="font-montserrat text-xl font-bold text-morelos-texto mb-2">Clientes por AP</h2>
+        <p class="text-sm text-gray-600 mb-2">Detalle por punto de acceso (ordenado por nombre).</p>
+        <canvas id="graficaPorAP" class="w-full h-56 md:h-64"></canvas>
+      
+        <hr class="my-3 border-gray-200" />
+        <h2 class="font-montserrat text-xl font-bold text-morelos-texto mb-2">
+          Equipos conectados
+        </h2>
+<div class="flex items-center gap-3 mb-2">
+  <label for="filtroAP" class="font-semibold text-gray-700">Filtrar por AP:</label>
+  <select id="filtroAP" class="input w-64">
+    <option value="__ALL__">Todos los AP</option>
+  </select>
+</div>
+
+        <div class="table-container">
+          <table class="table w-full text-sm">
+            <thead>
+              <tr>
+                <th>Equipo / MAC</th>
+                <th>AP</th>
+                <th>IP</th>
+                <th>Última conexión</th>
+                <th>Tráfico</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyEquipos">
+              <tr><td colspan="5" class="text-center text-gray-500 py-4">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+</div>
+    </section>
+
+  
+    
+    <section id="ltqnu-graficas" class="mb-2 mt-1 space-y-1">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="card p-4 h-80">
+          <div class="font-semibold mb-2">Clientes activos (dona)</div>
+          <canvas id="graficaDona" class="w-full h-full"></canvas>
+        </div>
+        <div class="card p-4 h-80 lg:col-span-2">
+          <div class="font-semibold mb-2">Histórico (24h)</div>
+          <canvas id="graficaHistorico" class="w-full h-full"></canvas>
+        </div>
+      </div>
+      <div class="card p-4">
+        <h2 class="font-montserrat text-xl font-bold text-morelos-texto mb-2">Clientes por AP</h2>
+        <p class="text-sm text-gray-600 mb-2">Detalle por punto de acceso (ordenado por nombre).</p>
+        <canvas id="graficaPorAP" class="w-full h-56 md:h-64"></canvas>
+      </div>
+    </section>
+  </main>
+
+  
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+
+    
+    const SUPABASE_URL = 'https://ciozodusvxirrrcoiifw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpb3pvZHVzdnhpcnJyY29paWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3MDQyODAsImV4cCI6MjA3MzI4MDI4MH0.JpihtP0qJU79POOzBycXg8v3sFXHjQNgJD0Egqlyveo';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let rawData = [];
+    let filtered = [];
+    let map, markersLayer, baseLayers;
+    let chart;
+    let markerMap = new Map();
+    const SECRETARIA_ALL = '__ALL__';
+    const ORGANISMO_ALL = '__ALL__';
+    const DEP_ALL = '__ALL__';
+    const BUCKET_PARAESTATALES = 'Organismos y Entidades Paraestatales';
+    
+    const ORGANISMOS_ESPECIALES = [
+      'Comisión Ejecutiva de Atención a Víctimas',
+      'Fiscalía Anticorrupción',
+      'Fondo Editorial del Estado de Morelos',
+      'Sindicato de Trabajadores al Servicio del Poder Ejecutivo del Estado de Morelos'
+    ];
+    
+    const SECRETARIAS_LIST = [
+        "Consejería Jurídica", "Jefatura de la Oficina de la Gubernatura", "Secretaría de Administración", 
+        "Secretaría de Bienestar", "Secretaría de Cultura", "Secretaría de Desarrollo Agropecuario", 
+        "Secretaría de Desarrollo Económico y del Trabajo", "Secretaria de Desarrollo Sustentable", 
+        "Secretaría de Educación", "Secretaría de Gobierno", "Secretaría de Hacienda", 
+        "Secretaría de Infraestructura", "Secretaria de la Contraloría", "Secretaría de las Mujeres", 
+        "Secretaría de Salud", "Secretaría de Seguridad y Proteccion Ciudadana Pública", "Secretaría de Turismo"
+    ];
+
+    const normStr = (s) => (s ?? '').toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().trim();
+
+    const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&lt;','<':'&gt;','"':'&quot;','\'':'&#039;'}[m]));
+    const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
+
+    async function fetchCSVShape() {
+      const { data, error } = await supabase
+        .from('ubicaciones_dependencias_points')
+        .select('secretaria_organo,dependencia_entidad_adscrita,ubicacion,lat,lon,red_la_tierra_que_nos_une');
+      if (error) { console.error(error); alert('Error leyendo Supabase: ' + error.message); return []; }
+      return data.map(r => ({
+        'SECRETARIA': r.secretaria_organo,
+        'DEPENDENCIAS': r.dependencia_entidad_adscrita,
+        'LATITUD': r.lat,
+        'LONGITUD': r.lon,
+        'RED LA TIERRA QUE NOS UNE': r.red_la_tierra_que_nos_une,
+        'UBICACION': r.ubicacion
+      }));
+    }
+
+    const normalizeYesNo = (v) => {
+      if (v == null) return null;
+      const s = String(v).trim().toLowerCase();
+      if (['si','sí','1','true','conectado','conectada','sí'].includes(s)) return true;
+      if (['no','0','false','desconectado','desconectada'].includes(s)) return false;
+      return null;
+    }
+
+    const asNumber = (v) => {
+      const n = Number(String(v ?? '').replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    }
+
+    const buildRow = (r) => {
+      let sec = (r['SECRETARIA'] ?? r['Secretaría'] ?? r['Secretaria'] ?? '').toString().trim();
+      const dep = (r['DEPENDENCIAS'] ?? r['Dependencias'] ?? r['DEPENDENCIA'] ?? r['Dependencia'] ?? '').toString().trim();
+      
+      if (SECRETARIAS_LIST.includes(dep)) sec = dep;
+      if (ORGANISMOS_ESPECIALES.includes(dep)) sec = BUCKET_PARAESTATALES;
+
+      const lat = asNumber(r['LATITUD'] ?? r['Latitud']);
+      const lon = asNumber(r['LONGITUD'] ?? r['Longitud']);
+      const conn = normalizeYesNo(r['RED LA TIERRA QUE NOS UNE'] ?? r['RED'] ?? r['Conectividad'] ?? r['Conectada']);
+      return { SECRETARIA: sec, DEPENDENCIAS: dep, LATITUD: lat, LONGITUD: lon, CONECTIVIDAD: conn, UBICACION: r['UBICACION'] || '' };
+    }
+
+    const countUniqueDeps = (rows) => new Set(rows.map(r => `${r.SECRETARIA}||${r.DEPENDENCIAS}`.toLowerCase())).size;
+
+    const updateDepOptions = (secVal, orgVal) => {
+      const selDep = document.getElementById('dependenciaSelect');
+      const isSecSelected = secVal !== SECRETARIA_ALL;
+      const isOrgSelected = orgVal !== ORGANISMO_ALL;
+
+      if (!isSecSelected && !isOrgSelected) {
+          selDep.disabled = true;
+          selDep.innerHTML = `<option value="">Selecciona Secretaría u Organismo</option>`;
+          return;
+      }
+
+      selDep.disabled = false;
+      
+      let pool = [];
+      if (isOrgSelected) {
+          pool = rawData.filter(r => r.DEPENDENCIAS === orgVal);
+      } else if (isSecSelected) {
+          pool = rawData.filter(r => r.SECRETARIA === secVal);
+      }
+      
+      const depsSet = new Set(pool.map(r => r.DEPENDENCIAS));
+      const list = Array.from(depsSet).sort((a,b)=>a.localeCompare(b,'es'));
+      
+      selDep.innerHTML = `<option value="${DEP_ALL}">Todas las Dependencias</option>` +
+        list.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+      selDep.value = DEP_ALL;
+    };
+
+    const createMap = () => {
+      map = L.map('map', { zoomControl: true, scrollWheelZoom: true }).setView([18.8, -99.1], 9);
+      const streets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: '&copy; Google' });
+      const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '&copy; Esri' });
+      baseLayers = { 'Google Calles': streets, 'Satélite': satellite };
+      streets.addTo(map);
+      L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
+      markersLayer = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnEveryZoom: true,
+        maxClusterRadius: 48,
+        iconCreateFunction: (cluster) => {
+          const count = cluster.getChildCount();
+          const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
+          return L.divIcon({ html: `<div>${count}</div>`, className: `marker-cluster marker-cluster-${size}`, iconSize: [40, 40] });
+        }
+      }).addTo(map);
+    }
+
+    const markerIcon = (connected) => {
+      const color = connected ? '#71785b' : '#773357';
+      const wifiSymbol = connected
+        ? `<g stroke='white' stroke-width='2' stroke-linecap='round' fill='none'>
+             <path d='M13, 18 a4,4 0 0,1 6,0' />
+             <path d='M10, 15 a8,8 0 0,1 12,0' />
+             <circle cx='16' cy='21' r='1' fill='white' stroke='none' />
+           </g>`
+        : `<g stroke='white' stroke-width='2' stroke-linecap='round' fill='none' opacity='0.7'>
+             <path d='M13, 18 a4,4 0 0,1 6,0' />
+             <path d='M10, 15 a8,8 0 0,1 12,0' />
+             <circle cx='16' cy='21' r='1' fill='white' stroke='none' />
+           </g>
+           <line x1='9' y1='23' x2='23' y2='9' stroke='white' stroke-width='3.5' stroke-linecap='round'/>`;
+
+      const svg = `
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 48'>
+          <path d='M16 0C7.16 0 0 7.16 0 16c0 12 16 32 16 32s16-20 16-32C32 7.16 24.84 0 16 0z' style='fill:${color};'/>
+          ${wifiSymbol}
+        </svg>`;
+
+      return L.divIcon({ html: svg, className: 'marker-svg', iconSize: [32, 48], iconAnchor: [16, 48], popupAnchor: [0, -48] });
+    }
+
+    const refreshMap = (rows) => {
+      markersLayer.clearLayers();
+      markerMap.clear();
+      const pts = [];
+      rows.forEach(r => {
+        if (r.LATITUD == null || r.LONGITUD == null) return;
+        const uniqueId = `${r.SECRETARIA}||${r.DEPENDENCIAS}`.toLowerCase();
+        const m = L.marker([r.LATITUD, r.LONGITUD], { icon: markerIcon(r.CONECTIVIDAD === true) })
+          .bindPopup(`<div class="text-sm font-sans">
+              <div class="font-bold text-base text-morelos-texto">${escapeHtml(r.DEPENDENCIAS)}</div>
+              <div class="text-gray-600">${escapeHtml(r.SECRETARIA)}</div>
+              <div class="mt-2 pt-2 border-t">
+                Estado: ${r.CONECTIVIDAD === true
+                  ? '<span class="badge bg-green-100 text-green-800">Conectada</span>'
+                  : r.CONECTIVIDAD === false
+                    ? '<span class="badge bg-red-100 text-red-800">No conectada</span>'
+                    : '<span class="badge bg-gray-100 text-gray-800">No especificado</span>'
+                }
+              </div>
+            </div>`);
+        markersLayer.addLayer(m);
+        markerMap.set(uniqueId, m);
+        pts.push([r.LATITUD, r.LONGITUD]);
+      });
+      document.getElementById('mapInfo').textContent = `${pts.length} ubicaciones en mapa`;
+      if (pts.length) { try { map.fitBounds(L.latLngBounds(pts).pad(0.25)); } catch {} }
+    }
+
+    const renderTable = (rows) => {
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      const fr = document.createDocumentFragment();
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        if (r.LATITUD != null && r.LONGITUD != null) {
+          const uniqueId = `${r.SECRETARIA}||${r.DEPENDENCIAS}`.toLowerCase();
+          tr.className = 'cursor-pointer hover:bg-yellow-50 transition-colors';
+          tr.dataset.id = uniqueId;
+        }
+        tr.innerHTML = `
+          <td class="pr-4 font-semibold text-morelos-texto">${escapeHtml(r.DEPENDENCIAS)}</td>
+          <td class="pr-4">${r.CONECTIVIDAD === true
+            ? '<span class="badge" style="background-color: #e8f5e9; color: #71785b; font-weight: 600;">Conectada</span>'
+            : r.CONECTIVIDAD === false
+              ? '<span class="badge" style="background-color: #fce4ec; color: #773357; font-weight: 600;">No conectada</span>'
+              : '<span class="badge bg-gray-100 text-gray-800">No especificado</span>'
+          }</td>`;
+        fr.appendChild(tr);
+      });
+      tbody.appendChild(fr);
+    }
+
+    const collapseByDependency = (rows) => {
+      const map = new Map();
+      rows.forEach(r => {
+        const key = `${r.SECRETARIA}||${r.DEPENDENCIAS}`.toLowerCase();
+        if (r.CONECTIVIDAD === true) map.set(key, true);
+        else if (r.CONECTIVIDAD === false && map.get(key) !== true) map.set(key, false);
+        else if (!map.has(key)) map.set(key, null);
+      });
+      return map;
+    }
+
+    const updateKPIsAndChart = (rows) => {
+      const totalDeps = countUniqueDeps(rows);
+      const connsByDep = collapseByDependency(rows);
+      const connectedDeps = [...connsByDep.values()].filter(v => v === true).length;
+      const notConnectedDeps = [...connsByDep.values()].filter(v => v === false).length;
+      const pct = totalDeps > 0 ? Math.round((connectedDeps / totalDeps) * 100) : 0;
+
+      document.getElementById('kpiTotal').textContent = totalDeps;
+      document.getElementById('kpiConectadas').textContent = connectedDeps;
+      document.getElementById('kpiNoConectadas').textContent = notConnectedDeps;
+      document.getElementById('kpiPorcentaje').textContent = pct + '%';
+
+      const data = [connectedDeps, notConnectedDeps];
+      if (!chart) {
+        const ctx = document.getElementById('donut').getContext('2d');
+        chart = new Chart(ctx, {
+          type: 'doughnut',
+          data: { labels: ['Conectadas', 'No conectadas'], datasets: [{ data, backgroundColor: ['#71785b', '#773357'], borderColor: '#f8f9fa', borderWidth: 4 }] },
+          options: { cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: true } } },
+          plugins: [{
+            id: 'centerText',
+            afterDraw(chart) {
+              const { ctx } = chart;
+              const center = chart.getDatasetMeta(0)?.data?.[0];
+              if (!center) return;
+              const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+              const connected = chart.data.datasets[0].data[0] ?? 0;
+              const pct = total > 0 ? Math.round((connected / total) * 100) : 0;
+              ctx.save();
+              ctx.font = '700 2rem Montserrat, sans-serif';
+              ctx.fillStyle = '#111827';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(`${pct}%`, center.x, center.y - 8);
+              ctx.font = '400 1rem Roboto Condensed, sans-serif';
+              ctx.fillStyle = '#4b5563';
+              ctx.fillText('Conectividad', center.x, center.y + 18);
+              ctx.restore();
+            }
+          }]
+        });
+      } else {
+        chart.data.datasets[0].data = data;
+        chart.update();
+      }
+
+      const donutLegend = document.getElementById('donutLegend');
+      const pctC = totalDeps > 0 ? ((connectedDeps/totalDeps)*100).toFixed(1) : 0;
+      const pctN = totalDeps > 0 ? ((notConnectedDeps/totalDeps)*100).toFixed(1) : 0;
+      donutLegend.innerHTML = `
+        <div class="legend-compact">
+          <div class="lc-item"><span class="dot" style="background-color: #71785b;"></span>${connectedDeps} Conectadas (${pctC}%)</div>
+          <div class="sep">|</div>
+          <div class="lc-item"><span class="dot" style="background-color: #773357;"></span>${notConnectedDeps} No Conectadas (${pctN}%)</div>
+        </div>`;
+    }
+
+    const populateFilters = () => {
+      const selSec = document.getElementById('secretariaSelect');
+      const selOrg = document.getElementById('organismoSelect');
+
+      selSec.innerHTML = `<option value="${SECRETARIA_ALL}">Todas las Secretarías</option>` +
+        SECRETARIAS_LIST.sort((a,b)=>a.localeCompare(b,'es')).map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join('');
+
+      selOrg.innerHTML = `<option value="${ORGANISMO_ALL}">Todos</option>` +
+        ORGANISMOS_ESPECIALES.sort((a,b)=>a.localeCompare(b,'es')).map(o=>`<option value="${escapeAttr(o)}">${escapeHtml(o)}</option>`).join('');
+
+      updateDepOptions(SECRETARIA_ALL, ORGANISMO_ALL);
+    }
+
+    const applyFilters = () => {
+      const secVal = document.getElementById('secretariaSelect').value;
+      const orgVal = document.getElementById('organismoSelect').value;
+      const depVal = document.getElementById('dependenciaSelect').value;
+      
+      filtered = rawData.filter(r => {
+        let primaryMatch = false;
+        if (secVal !== SECRETARIA_ALL) {
+            primaryMatch = (r.SECRETARIA === secVal);
+        } else if (orgVal !== ORGANISMO_ALL) {
+            primaryMatch = (r.DEPENDENCIAS === orgVal);
+        } else {
+            primaryMatch = true;
+        }
+
+        let secondaryMatch = true;
+        if (depVal !== DEP_ALL && depVal !== "") {
+            secondaryMatch = (r.DEPENDENCIAS === depVal);
+        }
+
+        return primaryMatch && secondaryMatch;
+      });
+
+      renderTable(filtered);
+      refreshMap(filtered);
+      updateKPIsAndChart(filtered);
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      createMap();
+      const rows = await fetchCSVShape();
+      rawData = rows.map(buildRow).filter(r => r.DEPENDENCIAS && r.SECRETARIA);
+      populateFilters();
+      applyFilters();
+
+      const selSec = document.getElementById('secretariaSelect');
+      const selOrg = document.getElementById('organismoSelect');
+      const selDep = document.getElementById('dependenciaSelect');
+
+      selSec.addEventListener('change', (e) => {
+        if(e.target.value !== SECRETARIA_ALL) selOrg.value = ORGANISMO_ALL;
+        updateDepOptions(e.target.value, selOrg.value);
+        applyFilters();
+      });
+
+      selOrg.addEventListener('change', (e) => {
+        if(e.target.value !== ORGANISMO_ALL) selSec.value = SECRETARIA_ALL;
+        updateDepOptions(selSec.value, e.target.value);
+        applyFilters();
+      });
+
+      selDep.addEventListener('change', applyFilters);
+
+      document.getElementById('tbody').addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-id]');
+        if (!row) return;
+        const id = row.dataset.id;
+        const marker = markerMap.get(id);
+        if (!marker) return;
+        if (typeof markersLayer.zoomToShowLayer === 'function') {
+          markersLayer.zoomToShowLayer(marker, () => {
+            map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 16), { animate: true, duration: 1 });
+            marker.openPopup();
+          });
+        } else {
+          map.flyTo(marker.getLatLng(), 15, { animate: true, duration: 1 });
+          setTimeout(() => marker.openPopup(), 700);
+        }
+      });
+    });
+  </script>
+
+  
+  <script>
+  const API_LIVE = './proxy_clientes.php'; 
+
+  let chDona, chHist, chAP;
+  const fmtBytes = b => {
+    if(!b) return '0 Bytes';
+    const k=1024, s=['Bytes','KB','MB','GB','TB'];
+    const i=Math.floor(Math.log(b)/Math.log(k));
+    return (b/Math.pow(k,i)).toFixed(2)+' '+s[i];
+  };
+
+let equiposGlobal = [];
+let filtroAPSelect = null;
+
+function poblarFiltroAP(lista){
+  if (!filtroAPSelect) return;
+  const aps = [...new Set((lista||[]).map(eq => eq.ap || eq.access_point || eq.ap_name || eq.ssid).filter(v => v && String(v).trim() !== ""))]
+    .sort((a,b)=>String(a).localeCompare(String(b),'es'));
+  const opts = ['<option value="__ALL__">Todos los AP</option>'].concat(aps.map(ap => `<option value="${String(ap).replace(/"/g,'&quot;')}">${ap}</option>`));
+  filtroAPSelect.innerHTML = opts.join('');
+}
+
+function aplicarFiltroAP(){
+  if (!filtroAPSelect) return renderEquiposTabla(equiposGlobal);
+  const apSel = filtroAPSelect.value || "__ALL__";
+  const filtrados = (apSel==="__ALL__") 
+    ? equiposGlobal 
+    : equiposGlobal.filter(eq => {
+        const ap = eq.ap || eq.access_point || eq.ap_name || eq.ssid || '';
+        return String(ap) === apSel;
+      });
+  renderEquiposTabla(filtrados);
+}
+
+function renderEquipos(lista){
+  equiposGlobal = Array.isArray(lista) ? lista.slice() : [];
+  if (!filtroAPSelect) {
+    filtroAPSelect = document.getElementById('filtroAP');
+    if (filtroAPSelect) {
+      filtroAPSelect.addEventListener('change', aplicarFiltroAP);
+    }
+  }
+  if (filtroAPSelect) poblarFiltroAP(equiposGlobal);
+  aplicarFiltroAP();
+}
+
+  
+  function renderEquiposTabla(lista){
+    const tbody=document.getElementById('tbodyEquipos');
+    if(!tbody) return;
+    const fmtDate = (v)=>{
+      if(!v && v!==0) return '—';
+      
+      let d;
+      if(typeof v==='number'){
+        d = (v>1e12) ? new Date(v) : new Date(v*1000);
+      }else{
+        d = new Date(v);
+      }
+      if(isNaN(d.getTime())) return '—';
+      return d.toLocaleString();
+    };
+    const fmtTraffic=(rx,tx,total)=>{
+      const toB = (n)=>{
+        n = Number(n||0);
+        if(!Number.isFinite(n)) n=0;
+        return n;
+      };
+      const b = toB(total)>0 ? toB(total) : (toB(rx)+toB(tx));
+      return fmtBytes(b);
+    };
+    const safe = (s)=> (s==null || s==='') ? '—' : String(s);
+    tbody.innerHTML='';
+    if(!lista || !Array.isArray(lista) || lista.length===0){
+      const tr=document.createElement('tr');
+      tr.innerHTML = '<td colspan="5" class="text-center text-gray-500 py-4">Sin detalle disponible</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+    
+    
+    const toTs = (v)=>{
+      if(v==null) return 0;
+      if(typeof v==='number'){ return v>1e12 ? Math.floor(v/1000) : v; }
+      const d=new Date(v); return isNaN(d.getTime()) ? 0 : Math.floor(d.getTime()/1000);
+    };
+    lista = lista.slice().sort((a,b)=>{
+      const la = toTs(a.last_seen || a.lastSeen || a.ultima || a.updated_at);
+      const lb = toTs(b.last_seen || b.lastSeen || b.ultima || b.updated_at);
+      if(lb!==la) return lb-la;
+      const apA = (a.ap || a.access_point || a.ap_name || a.ssid || '').toString().toLowerCase();
+      const apB = (b.ap || b.access_point || b.ap_name || b.ssid || '').toString().toLowerCase();
+      if(apA!==apB) return apA.localeCompare(apB,'es');
+      const nA = (a.nombre || a.hostname || a.device_name || a.mac || a.hw || a.address || '').toString().toLowerCase();
+      const nB = (b.nombre || b.hostname || b.device_name || b.mac || b.hw || b.address || '').toString().toLowerCase();
+      return nA.localeCompare(nB,'es');
+    });
+    const frag=document.createDocumentFragment();
+    lista.forEach((eq)=>{
+      const nombre = eq.nombre || eq.hostname || eq.device_name || '';
+      const mac    = eq.mac || eq.hw || eq.address || '';
+      const equipo = nombre ? `${nombre} <span class="text-gray-500">(${mac||'s/m'})</span>` : (mac || '—');
+      const ap     = eq.ap || eq.access_point || eq.ap_name || eq.ssid || '—';
+      const ip     = eq.ip || eq.address_ip || eq.ipv4 || '—';
+      const last   = eq.last_seen || eq.lastSeen || eq.ultima || eq.updated_at || null;
+      const rx     = eq.bytes_rx || eq.rx_bytes || eq.down || 0;
+      const tx     = eq.bytes_tx || eq.tx_bytes || eq.up || 0;
+      const total  = eq.total_bytes || eq.bytes || null;
+      const tr=document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-semibold text-morelos-texto">${equipo}</td>
+        <td>${safe(ap)}</td>
+        <td>${safe(ip)}</td>
+        <td>${fmtDate(last)}</td>
+        <td>${fmtTraffic(rx,tx,total)}</td>
+      `;
+      frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
+  }
+
+  const adapt = r => ({
+    conectados: r.activos ?? r.total_activos ?? r.clientes_activos ?? r.conectados ?? 0,
+    en_ltqnu:   r.segmento_count ?? r.segmentos ?? 0,
+    bytes:      r.total_bytes ?? r.bytes ?? r.total_datos ?? 0,
+    histor:     r.clientes_historico ?? r.historico ?? r.series ?? [],
+    porAP:      r.clientes_por_ap ?? r.por_ap ?? r.ap ?? {}
+  });
+
+  function pintaDona(n){
+    const ctx=document.getElementById('graficaDona')?.getContext('2d');
+    if(!ctx) return;
+    if(chDona) chDona.destroy();
+    chDona=new Chart(ctx,{type:'doughnut',data:{labels:['Activos'],datasets:[{data:[n],backgroundColor:['#00723F'],borderColor:'#fff',borderWidth:4}]},options:{cutout:'75%',plugins:{legend:{display:false}}}});
+  }
+  function pintaHist(arr){
+    const el=document.getElementById('graficaHistorico');
+    if(!el) return;
+    const ctx=el.getContext('2d');
+    if(chHist) chHist.destroy();
+    const p=n=>n<10?('0'+n):n;
+    const labels=arr.map(x=>{const d=new Date((x.timestamp*1000)||x.timestamp);return `${p(d.getHours())}:${p(d.getMinutes())}`;});
+    const values=arr.map(x=>x.count);
+    chHist=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:values,borderColor:'#662D91',backgroundColor:'rgba(102,45,145,.15)',fill:true,tension:.35,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}}});
+  }
+  function pintaAP(map){
+    const el=document.getElementById('graficaPorAP');
+    if(!el) return;
+    const wrap = el.closest('.card');
+    const keys = Object.keys(map||{});
+    if(chAP){ try{ chAP.destroy(); }catch{} chAP=null; }
+    if(keys.length===0){
+      if(wrap){
+        wrap.innerHTML = '<h2 class="font-montserrat text-xl font-bold text-morelos-texto mb-2">Clientes por AP</h2>' +
+                         '<p class="text-sm text-gray-500 mb-2">Sin datos disponibles para mostrar.</p>';
+      }
+      return;
+    }
+    const ctx=el.getContext('2d');
+    chAP=new Chart(ctx,{
+      type:'bar',
+      data:{labels:keys,datasets:[{data:keys.map(k=>map[k]),backgroundColor:'#71785b'}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{y:{ticks:{autoSkip:false}}}}
+    });
+  }
+
+  async function cargarLTQNU(){
+    try{
+      const r=await fetch(API_LIVE);
+      const txt=await r.text();
+      let raw;
+      try{ raw=JSON.parse(txt); }catch{ throw new Error('Respuesta no JSON: '+txt.slice(0,200)); }
+      if(raw.error) throw new Error(raw.error + (raw.detail?(' | '+raw.detail):''));
+      const d=adapt(raw);
+      
+      let equipos = raw.equipos || raw.clientes || raw.devices || raw.activos || raw.detalle || raw.lista || null;
+      if(!Array.isArray(equipos)){
+        
+        for(const k in raw){
+          if(Array.isArray(raw[k]) && raw[k].length && typeof raw[k][0]==='object'){
+            equipos = raw[k];
+            break;
+          }
+        }
+      }
+      renderEquipos(equipos||[]);
+
+      const el1=document.getElementById('kpi-conectados'); if(el1) el1.textContent=d.conectados;
+      const el2=document.getElementById('kpi-en-ltqnu');   if(el2) el2.textContent=d.en_ltqnu;
+      const el3=document.getElementById('kpi-uso-red');   if(el3) el3.textContent=fmtBytes(d.bytes);
+      pintaDona(d.conectados);
+      pintaHist(d.histor);
+      pintaAP(d.porAP);
+    }catch(e){
+      console.error(e);
+      ['kpi-conectados','kpi-en-ltqnu','kpi-uso-red'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent='Error';});
+    }
+  }
+  document.addEventListener('DOMContentLoaded', ()=>{
+    cargarLTQNU();
+    setInterval(cargarLTQNU, 60000);
+  });
+  </script>
+
+</body>
+</html>
+
