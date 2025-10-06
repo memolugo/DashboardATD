@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Diversidad Cultural, Étnica y Lingüística · Morelos</title>
+
+<!-- Tipografía y Tailwind -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Montserrat','ui-sans-serif','system-ui'] },
+        colors: {
+          'verde-oscuro':'#2E3B2B','verde-olivo':'#71785b','dorado':'#bc9b73',
+          'vino':'#773357','cafe':'#7C4A36','gris-suave':'#CBCABE','fondo-general':'#F3F4F6'
+        },
+        boxShadow: { suave:'0 6px 18px rgba(0,0,0,.08)' }
+      }
+    }
+  }
+</script>
+
+<!-- Librerías: Leaflet y Tabulator -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet">
+<script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
+
+<style>
+  html,body{background:#F3F4F6}
+  .header-grad{background:linear-gradient(135deg,#2E3B2B 0%,#4a5a3e 40%,#71785b 100%)}
+  .card{background:#fff;border-radius:1rem;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:1rem}
+  @media print{
+    #filtros,.leaflet-control-container{display:none!important}
+    body{background:#fff}.page{padding:0!important}.grid{display:block!important}.card{box-shadow:none!important}
+  }
+</style>
+</head>
+<body class="font-sans text-gray-800">
+
+<!-- HEADER (de header.html, título ya coherente) -->
+<header class="w-full header-grad text-white py-4 px-6">
+  <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+           alt="ATD · Gobierno del Estado de Morelos" style="height:60px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(0,0,0,.15));"/>
+      <h1 class="text-2xl font-bold tracking-tight">Diversidad Cultural, Étnica y Lingüística</h1>
+    </div>
+    <span class="text-xs bg-white/10 px-3 py-1 rounded-full">Fuente: INEGI 2020</span>
+  </div>
+</header>
+
+<!-- MENÚ (de header.html) -->
+<nav class="w-full bg-white shadow-sm py-3">
+  <div class="max-w-7xl mx-auto flex flex-wrap justify-center gap-2 px-4">
+    <a href="demografico_poblacion.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Población</a>
+    <a href="demografico_educacion.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Educación</a>
+    <a href="demografico_economia.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Economía</a>
+    <a href="demografico_salud.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Salud</a>
+    <a href="demografico_vivienda.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Vivienda y Servicios Básicos</a>
+    <a href="demografico_diversidad.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Diversidad Cultural</a>
+    <a href="demografico_limitaciones.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Limitaciones y Discapacidades</a>
+    <a href="demografico.html" style="background-color:#71785b;color:#fff;font-weight:600;padding:.6rem 1.2rem;border-radius:9999px;">Inicio</a>
+  </div>
+</nav>
+
+<main class="page max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Filtros -->
+  <section id="filtros" class="card">
+    <div class="flex flex-col md:flex-row gap-4 items-center">
+      <div class="w-full md:max-w-xs">
+        <label class="block text-xs text-gray-500 mb-1">Municipio</label>
+        <select id="selMunicipio" class="w-full rounded-xl border-gray-300 focus:ring-verde-olivo focus:border-verde-olivo">
+          <option value="__ALL__">Todos</option>
+        </select>
+      </div>
+      <div class="w-full md:max-w-xs">
+        <label class="block text-xs text-gray-500 mb-1">Localidad</label>
+        <select id="selLocalidad" class="w-full rounded-xl border-gray-300 focus:ring-verde-olivo focus:border-verde-olivo" disabled>
+          <option value="__ALL__">Todas</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="grid md:grid-cols-5 gap-4 text-center">
+    <div class="card"><div class="text-xs text-gray-500">Población Total</div><div id="kpiTotal" class="text-2xl font-bold">—</div><div id="kpiTotalTxt" class="text-sm text-gray-500">—</div></div>
+    <div class="card"><div class="text-xs text-gray-500">Hablantes de LI (3+)</div><div id="kpiIndi" class="text-2xl font-bold">—</div><div id="kpiIndiPct" class="text-sm text-gray-500">—</div></div>
+    <div class="card"><div class="text-xs text-gray-500">Bilingües (LI+ES)</div><div id="kpiBili" class="text-2xl font-bold">—</div><div id="kpiBiliPct" class="text-sm text-gray-500">—</div></div>
+    <div class="card"><div class="text-xs text-gray-500">No hablan español</div><div id="kpiNHE" class="text-2xl font-bold">—</div><div id="kpiNHEPct" class="text-sm text-gray-500">—</div></div>
+    <div class="card"><div class="text-xs text-gray-500">Población Afromexicana</div><div id="kpiAfro" class="text-2xl font-bold">—</div><div id="kpiAfroPct" class="text-sm text-gray-500">—</div></div>
+  </section>
+
+  <!-- Mapa -->
+  <section class="grid grid-cols-1 gap-4">
+    <div class="card relative">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold text-verde-oscuro">Mapa por municipio (coroplético)</h3>
+      </div>
+      <div id="map" class="w-full h-[500px] rounded-xl"></div>
+    </div>
+  </section>
+
+  <!-- Top 5 -->
+  <section id="top5Section" class="card">
+    <h3 class="font-semibold text-verde-oscuro mb-3">Top 5 municipios por % de hablantes de Lengua Indígena</h3>
+    <div id="top5List" class="space-y-2 text-sm text-gray-700"></div>
+  </section>
+
+  <!-- Tabla + Narrativa (sin etiqueta “Detalle por municipio / localidad”) -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card">
+      <div id="tabla"></div>
+    </div>
+    <div class="card">
+      <h3 class="font-semibold text-verde-oscuro mb-2">Resumen automático</h3>
+      <p id="narrativa" class="text-sm text-gray-700 leading-6">Selecciona un municipio o usa los filtros para ver la interpretación.</p>
+    </div>
+  </section>
+
+  <footer class="text-xs text-gray-500 text-center py-6">
+    © Gobierno del Estado de Morelos — Diseño institucional Montserrat · Degradado verde · Paleta oficial.
+  </footer>
+</main>
+
+<!-- LÓGICA: INLINE (restaurada) -->
+<script type="module">
+  /********** CONFIG **********/
+  const SUPABASE_URL = "https://sbajqqlmwcbxxhaarrlm.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiYWpxcWxtd2NieHhoYWFycmxtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxOTczMzEsImV4cCI6MjA3NDc3MzMzMX0.eRc2gqhk4q9oNi7Pfig302XWfHXzJgr_bX8lj9lTzes";
+
+  const SOURCE_TABLE = "demografia_diversidad_morelos";
+  const GEOJSON_URL  = "./morelos_municipios.geojson"; // Asegúrate que exista en la misma carpeta
+  const GEO_PROP = 'NOMGEO';
+
+  // Campos
+  const FIELDS = {
+    muni:"nom_mun",
+    loca:"nom_loc",
+    total:"p_total_mun",        // total a nivel municipio (no sumar)
+    total_local:"p_total",      // total por localidad
+    hogares:"total_hogares",
+    p3_hli_total:"p3ym_hli",
+    p3_hli_f:"p3ym_hli_f",
+    p3_hli_m:"p3ym_hli_m",
+    p3_hli_he_total:"p3hli_he",
+    p3_hli_he_f:"p3hli_he_f",
+    p3_hli_he_m:"p3hli_he_m",
+    p3_hli_nhe_total:"p3hlinhe",
+    p3_hli_nhe_f:"p3hlinhe_f",
+    p3_hli_nhe_m:"p3hlinhe_m",
+    p5_hli_total:"p5_hli",
+    p5_hli_he:"p5_hli_he",
+    p5_hli_nhe:"p5_hli_nhe",
+    afro_total:"pob_afro",
+    afro_f:"pob_afro_f",
+    afro_m:"pob_afro_m",
+    hogares_indigenas:"phog_ind"
+  };
+
+  // Utilidades
+  const fmt = new Intl.NumberFormat('es-MX');
+  const sum = (arr,k)=> arr.reduce((a,b)=>a+(Number(b[k])||0),0);
+  const max = (arr,k)=> arr.reduce((m,b)=>Math.max(m, Number(b[k])||0), 0);
+  const norm = (s) => String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toUpperCase().replace(/\s+/g,' ').trim();
+
+  let rawData = [], muniAgg = [], localidadesPorMuni = {};
+  let muniLayer, map;
+  let muniIndex = new Map();
+  let tabla;
+
+  /* ----------- SUPABASE (paginado) ----------- */
+  async function fetchSupabaseAll(){
+    const cols = [
+      FIELDS.muni,FIELDS.loca,FIELDS.total,FIELDS.total_local,FIELDS.hogares,
+      FIELDS.p3_hli_total,FIELDS.p3_hli_f,FIELDS.p3_hli_m,
+      FIELDS.p3_hli_he_total,FIELDS.p3_hli_he_f,FIELDS.p3_hli_he_m,
+      FIELDS.p3_hli_nhe_total,FIELDS.p3_hli_nhe_f,FIELDS.p3_hli_nhe_m,
+      FIELDS.p5_hli_total,FIELDS.p5_hli_he,FIELDS.p5_hli_nhe,
+      FIELDS.afro_total,FIELDS.afro_f,FIELDS.afro_m,
+      FIELDS.hogares_indigenas
+    ].join(',');
+
+    const baseUrl = `${SUPABASE_URL}/rest/v1/${SOURCE_TABLE}?select=${cols}&order=${encodeURIComponent(FIELDS.muni)}`;
+
+    try{
+      let data = [];
+      let from = 0;
+      const limit = 1000;
+      let more = true;
+
+      while (more) {
+        const res = await fetch(`${baseUrl}&offset=${from}`, {
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Range: `${from}-${from + limit - 1}`,
+            Prefer: 'count=exact'
+          }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const chunk = await res.json();
+        data = data.concat(chunk);
+        more = chunk.length === limit;
+        from += limit;
+      }
+
+      return { ok:true, data, count: data.length };
+    }catch(e){
+      console.error(e);
+      return { ok:false, error:String(e) };
+    }
+  }
+
+  /* ----------- MAPA ----------- */
+  function initMap(){
+    map = L.map('map',{zoomControl:true, scrollWheelZoom:false}).setView([18.9,-99.2],8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  }
+  function colorScale(p){ if(p>=10)return'#773357'; if(p>=6)return'#bc9b73'; if(p>=3)return'#71785b'; if(p>0)return'#9aa08a'; return'#e6e7e3'; }
+  function styleFeature(feature){
+    const nameGeo = String(feature?.properties?.[GEO_PROP] ?? '').trim();
+    const row = muniIndex.get(norm(nameGeo));
+    const total = row?.p_total ?? 0;
+    const indi  = row?.p3ym_hli ?? 0;
+    const p = total ? (indi/total*100) : 0;
+    return { color:'#ffffff', weight:1, fillColor:colorScale(p), fillOpacity:.85 };
+  }
+  function onEachFeature(feature,layer){
+    const nameGeo = String(feature?.properties?.[GEO_PROP] ?? '').trim();
+    const row = muniIndex.get(norm(nameGeo));
+    const nameToSelect = row?.nom_mun ?? nameGeo;
+    layer.bindTooltip(nameToSelect, {sticky:true});
+    layer.on('click',()=>{
+      document.getElementById('selMunicipio').value = nameToSelect;
+      actualizarTodo();
+      focusMunicipioEnMapa(nameToSelect, layer);
+    });
+    layer.on('mouseover',()=>layer.setStyle({weight:2}));
+    layer.on('mouseout',()=>muniLayer.resetStyle(layer));
+  }
+  function renderMap(geo){
+    if(muniLayer) muniLayer.remove();
+    muniLayer = L.geoJSON(geo,{ style:styleFeature, onEachFeature }).addTo(map);
+    try{ map.fitBounds(muniLayer.getBounds(),{padding:[10,10]}); }catch{}
+  }
+  async function loadGeoJSON(){
+    try{
+      const r = await fetch(GEOJSON_URL);
+      if(!r.ok) throw new Error(`GeoJSON HTTP ${r.status}`);
+      const geo = await r.json();
+      renderMap(geo);
+      return true;
+    }catch(e){
+      console.error(e);
+      return false;
+    }
+  }
+  function focusMunicipioEnMapa(nom,layer=null){
+    if(!muniLayer) return;
+    if(!nom||nom==='__ALL__'){ try{ map.fitBounds(muniLayer.getBounds(),{padding:[10,10]}); }catch{} return; }
+    let target=layer;
+    if(!target){
+      const nomN = norm(nom);
+      muniLayer.eachLayer(l=>{
+        const lgName = String(l.feature?.properties?.[GEO_PROP] ?? '').trim();
+        if(norm(lgName)===nomN) target=l;
+      });
+    }
+    if(target){
+      map.fitBounds(target.getBounds(),{padding:[30,30]});
+      muniLayer.eachLayer(l=>l.setStyle({opacity:1, fillOpacity:.85}));
+      target.setStyle({fillColor:'#2563eb', fillOpacity:.9, color:'#1e40af', weight:2});
+    }
+  }
+
+  /* ----------- KPI / TABLA ----------- */
+  function calcKPIs(fM='__ALL__', fL='__ALL__'){
+    let base=[];
+    let totalPob=0;
+
+    if (fM==='__ALL__') {                         // Estado
+      base = muniAgg;
+      totalPob = sum(base,'p_total');
+    } else if (fL==='__ALL__') {                  // Municipio completo
+      base = muniAgg.filter(r=>r.nom_mun===fM);
+      totalPob = sum(base,'p_total');
+    } else {                                      // Localidad específica
+      base = rawData.filter(r=>r[FIELDS.muni]===fM && r[FIELDS.loca]===fL);
+      totalPob = sum(base, FIELDS.total_local);   // denominador local
+    }
+
+    const indi = sum(base, FIELDS.p3_hli_total);
+    const bili = sum(base, FIELDS.p3_hli_he_total);
+    const nhe  = sum(base, FIELDS.p3_hli_nhe_total);
+    const afro = sum(base, FIELDS.afro_total);
+
+    document.getElementById('kpiTotal').textContent = fmt.format(totalPob);
+    document.getElementById('kpiTotalTxt').textContent = '100% de la población';
+
+    document.getElementById('kpiIndi').textContent=fmt.format(indi);
+    document.getElementById('kpiIndiPct').textContent= totalPob ? `${(indi/totalPob*100).toFixed(1)}% de la población` : '—';
+
+    document.getElementById('kpiBili').textContent=fmt.format(bili);
+    document.getElementById('kpiBiliPct').textContent= indi ? `${(bili/indi*100).toFixed(1)}% de hablantes LI` : '—';
+
+    document.getElementById('kpiNHE').textContent=fmt.format(nhe);
+    document.getElementById('kpiNHEPct').textContent= indi ? `${(nhe/indi*100).toFixed(1)}% de hablantes LI` : '—';
+
+    document.getElementById('kpiAfro').textContent=fmt.format(afro);
+    document.getElementById('kpiAfroPct').textContent= totalPob ? `${(afro/totalPob*100).toFixed(1)}% de la población` : '—';
+
+    const scope = (fM==='__ALL__') ? 'Morelos' : (fL==='__ALL__' ? fM : `${fL}, ${fM}`);
+    document.getElementById('narrativa').textContent =
+      `En ${scope}, la población total es ${fmt.format(totalPob)}. `+
+      `${fmt.format(indi)} personas (${(indi/Math.max(totalPob,1)*100).toFixed(1)}%) hablan una lengua indígena; `+
+      `${fmt.format(bili)} son bilingües y ${fmt.format(nhe)} no hablan español. `+
+      `La población que se reconoce afromexicana es de ${fmt.format(afro)} (${(afro/Math.max(totalPob,1)*100).toFixed(1)}%).`;
+  }
+
+  function renderTabla(fM='__ALL__',fL='__ALL__'){
+    const rows=(fM==='__ALL__')?muniAgg.map(m=>({nivel:'Municipio',nom:m.nom_mun,...m}))
+      : rawData.filter(r=>r[FIELDS.muni]===fM && (fL==='__ALL__' || r[FIELDS.loca]===fL)).map(r=>({
+          nivel:'Localidad', nom:r[FIELDS.loca],
+          p_total:Number(r[FIELDS.total_local])||0,
+          p3ym_hli:Number(r[FIELDS.p3_hli_total])||0,
+          p3hli_he:Number(r[FIELDS.p3_hli_he_total])||0,
+          p3hlinhe:Number(r[FIELDS.p3_hli_nhe_total])||0,
+          pob_afro:Number(r[FIELDS.afro_total])||0,
+          phog_ind:Number(r[FIELDS.hogares_indigenas])||0,
+        }));
+    const columns=[
+      {title:"Nivel",field:"nivel",width:110,headerSort:false},
+      {title:"Nombre",field:"nom",headerSort:true},
+      {title:"Población total",field:"p_total",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+      {title:"Hablantes LI (3+)",field:"p3ym_hli",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+      {title:"Bilingües",field:"p3hli_he",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+      {title:"LI sin español",field:"p3hlinhe",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+      {title:"Afromexicana",field:"pob_afro",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+      {title:"Hogares indígenas",field:"phog_ind",hozAlign:"right",formatter:"money",formatterParams:{precision:false}},
+    ];
+    if(!tabla){ tabla=new Tabulator("#tabla",{data:rows,layout:"fitColumns",columns,height:"360px",placeholder:"Sin datos"}); }
+    else{ tabla.setData(rows); }
+  }
+
+  /* ----------- Top 5 ----------- */
+  function renderTop5(){
+    const top5 = muniAgg
+      .map(m => ({ nom:m.nom_mun, pct:(m.p3ym_hli / Math.max(m.p_total,1))*100 }))
+      .filter(x=>Number.isFinite(x.pct))
+      .sort((a,b)=>b.pct - a.pct)
+      .slice(0,5);
+
+    const cont = document.getElementById("top5List");
+    cont.innerHTML = top5.map(t => `
+      <div>
+        <div class="flex justify-between">
+          <span>${t.nom}</span>
+          <span class="font-semibold">${t.pct.toFixed(1)}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+          <div class="bg-[#773357] h-2 rounded-full" style="width:${Math.min(100,t.pct).toFixed(1)}%"></div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  /* ----------- Agrupar municipal y selects ----------- */
+  function agruparMunicipal(datos){
+    const mapM = new Map();
+    for(const r of datos){
+      const k = r[FIELDS.muni] || 'SIN MUNICIPIO';
+      if(!mapM.has(k)) mapM.set(k,[]);
+      mapM.get(k).push(r);
+    }
+    const out=[];
+    mapM.forEach((arr,nom_mun)=>{
+      out.push({
+        nom_mun,
+        p_total:       max(arr, FIELDS.total),        // máximo por municipio
+        total_hogares: sum(arr, FIELDS.hogares),
+        p3ym_hli:      sum(arr, FIELDS.p3_hli_total),
+        p3ym_hli_f:    sum(arr, FIELDS.p3_hli_f),
+        p3ym_hli_m:    sum(arr, FIELDS.p3_hli_m),
+        p3hli_he:      sum(arr, FIELDS.p3_hli_he_total),
+        p3hli_he_f:    sum(arr, FIELDS.p3_hli_he_f),
+        p3hli_he_m:    sum(arr, FIELDS.p3_hli_he_m),
+        p3hlinhe:      sum(arr, FIELDS.p3_hli_nhe_total),
+        p3hlinhe_f:    sum(arr, FIELDS.p3_hli_nhe_f),
+        p3hlinhe_m:    sum(arr, FIELDS.p3_hli_nhe_m),
+        pob_afro:      sum(arr, FIELDS.afro_total),
+        pob_afro_f:    sum(arr, FIELDS.afro_f),
+        pob_afro_m:    sum(arr, FIELDS.afro_m),
+        phog_ind:      sum(arr, FIELDS.hogares_indigenas),
+      });
+    });
+    return out.sort((a,b)=>a.nom_mun.localeCompare(b.nom_mun));
+  }
+
+  function poblarSelects(){
+    const selM=document.getElementById('selMunicipio');
+    const selL=document.getElementById('selLocalidad');
+    selM.innerHTML='<option value="__ALL__">Todos</option>'+muniAgg.map(m=>`<option value="${m.nom_mun}">${m.nom_mun}</option>`).join('');
+    selL.innerHTML=`<option value="__ALL__">Todas</option>`; selL.disabled=true;
+    selM.onchange=()=>{ const m=selM.value;
+      if(m==='__ALL__'){ selL.innerHTML=`<option value="__ALL__">Todas</option>`; selL.disabled=true; }
+      else{
+        const locs=(localidadesPorMuni[m]||[]).sort();
+        selL.innerHTML=[`<option value="__ALL__">Todas</option>`,...locs.map(l=>`<option value="${l}">${l}</option>`)].join('');
+        selL.disabled=false;
+      }
+      actualizarTodo(); focusMunicipioEnMapa(m);
+    };
+    selL.onchange=actualizarTodo;
+  }
+
+  function actualizarTodo(){
+    const muni=document.getElementById('selMunicipio').value;
+    const loc=document.getElementById('selLocalidad').value;
+    calcKPIs(muni,loc);
+    renderTabla(muni,loc);
+    if(muniLayer) muniLayer.setStyle(styleFeature);
+    if(muni && muni!=='__ALL__') focusMunicipioEnMapa(muni);
+  }
+
+  /* ----------- Arranque ----------- */
+  async function boot(){
+    // Datos
+    const allRes = await fetchSupabaseAll();
+    if(!allRes.ok){ console.error(allRes.error); }
+    rawData = allRes.ok ? allRes.data : [];
+
+    // Índices y agregados
+    const muniList = [...new Set(rawData.map(r=>r[FIELDS.muni]).filter(Boolean))].sort();
+    muniAgg = agruparMunicipal(rawData);
+    muniIndex = new Map(muniAgg.map(m => [ norm(m.nom_mun), m ]));
+
+    localidadesPorMuni = rawData.reduce((acc,r)=>{
+      const m = r[FIELDS.muni]||'SIN MUNICIPIO';
+      const l = r[FIELDS.loca]||'SIN LOCALIDAD';
+      if(!acc[m]) acc[m]=new Set(); acc[m].add(l); return acc;
+    },{});
+    Object.keys(localidadesPorMuni).forEach(k=>localidadesPorMuni[k]=Array.from(localidadesPorMuni[k]).sort());
+
+    // UI
+    poblarSelects();
+    initMap();
+    await loadGeoJSON();
+    calcKPIs('__ALL__','__ALL__');
+    renderTabla('__ALL__','__ALL__');
+    renderTop5();
+  }
+
+  boot();
+</script>
+</body>
+</html>

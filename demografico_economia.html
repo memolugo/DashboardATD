@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard · Situación Económica y Laboral</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root{
+      --verde-oscuro:#2E3B2B;
+      --verde-olivo:#71785b;
+      --dorado:#bc9b73;
+      --vino:#773357;
+      --cafe:#7C4A36;
+      --gris-suave:#CBCABE;
+      --fondo:#F3F4F6;
+    }
+    body{ font-family:'Montserrat',sans-serif; background:var(--fondo); }
+    .card{ background:#fff; border-radius:1rem; box-shadow:0 8px 20px rgba(0,0,0,.06); }
+
+    /* ——— Estilos para el header y el menú (tomados de header.html) ——— */
+    .header-grad{ background:linear-gradient(90deg,var(--verde-oscuro),var(--verde-olivo)); }
+    .logo-img{ height:60px; width:auto; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.15)); }
+    .menu-btn{
+      background-color:var(--verde-olivo);
+      color:#fff;
+      font-weight:600;
+      padding:.6rem 1.2rem;
+      border-radius:9999px;
+      transition:.3s;
+      display:inline-block;
+    }
+    .menu-btn:hover{ background-color:var(--vino); transform:translateY(-2px); }
+  </style>
+</head>
+<body>
+  <!-- HEADER (reemplazado desde header.html con texto ajustado al tablero) -->
+  <header class="w-full header-grad text-white py-4 px-6">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+             alt="ATD · Gobierno del Estado de Morelos" class="logo-img" />
+        <h1 class="text-2xl font-bold tracking-tight">Situación Económica y Laboral</h1>
+      </div>
+      <span class="text-xs bg-white/10 px-3 py-1 rounded-full">Fuente: demografia_morelos_clean.csv</span>
+    </div>
+  </header>
+
+  <!-- MENÚ DE BOTONES (añadido desde header.html) -->
+  <nav class="w-full bg-white shadow-sm py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-center gap-2 px-4">
+      <a href="demografico_poblacion.html" class="menu-btn">Población</a>
+      <a href="demografico_educacion.html" class="menu-btn">Educación</a>
+      <a href="demografico_economia.html" class="menu-btn">Economía</a>
+      <a href="demografico_salud.html" class="menu-btn">Salud</a>
+      <a href="demografico_vivienda.html" class="menu-btn">Vivienda y Servicios Básicos</a>
+      <a href="demografico_diversidad.html" class="menu-btn">Diversidad Cultural</a>
+      <a href="demografico_limitaciones.html" class="menu-btn">Limitaciones y Discapacidades</a>
+      <a href="demografico.html" class="menu-btn">Inicio</a>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <!-- Filtros -->
+    <section class="card p-4">
+      <h2 class="text-lg font-semibold text-[var(--verde-oscuro)] mb-3">Filtros</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label for="selMun" class="block text-sm text-gray-700 mb-1">Municipio (nom_mun)</label>
+          <select id="selMun" class="w-full border rounded-lg p-2"></select>
+        </div>
+        <div>
+          <label for="selLoc" class="block text-sm text-gray-700 mb-1">Localidad (nom_loc)</label>
+          <select id="selLoc" class="w-full border rounded-lg p-2"></select>
+        </div>
+        <div class="flex items-end">
+          <button id="btnClear" class="ml-auto bg-[var(--vino)] text-white px-4 py-2 rounded-lg">Limpiar filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="card p-4">
+        <div class="text-sm text-gray-500">Tasa de desempleo</div>
+        <div id="kpiDesemp" class="text-2xl font-bold text-[var(--vino)]">–</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm text-gray-500">Tasa de ocupación</div>
+        <div id="kpiOcup" class="text-2xl font-bold text-[var(--verde-oscuro)]">–</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm text-gray-500">Índice de dependencia</div>
+        <div id="kpiDep" class="text-2xl font-bold text-[var(--cafe)]">–</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm text-gray-500">Participación femenina</div>
+        <div id="kpiFem" class="text-2xl font-bold text-[var(--dorado)]">–</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm text-gray-500">Participación masculina</div>
+        <div id="kpiMas" class="text-2xl font-bold text-[var(--verde-olivo)]">–</div>
+      </div>
+    </section>
+
+    <!-- Gráfico -->
+    <section class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold text-[var(--verde-oscuro)]">Empleo y Desempleo</h2>
+        <span id="chartSubtitle" class="text-xs text-gray-500"></span>
+      </div>
+      <canvas id="chart" height="110"></canvas>
+    </section>
+
+    <!-- Tabla -->
+    <section class="card p-4">
+      <h2 class="text-lg font-semibold text-[var(--verde-oscuro)] mb-2">Detalle de datos</h2>
+      <div id="tabla"></div>
+    </section>
+  </main>
+
+  <script>
+    const num = (v)=>{if(v===null||v===undefined)return 0;const n=(typeof v==='number')?v:parseFloat(String(v).replace(/,/g,''));return isNaN(n)?0:n;};
+    const formatPct=(x)=>isFinite(x)?x.toFixed(1)+'%':'–';
+    const formatNum=(x)=>new Intl.NumberFormat('es-MX').format(Math.round(x));
+    const needed=["nom_mun","nom_loc","pea","pea_f","pea_m","pocupada","pocupada_f","pocupada_m","pdesocup","pdesocup_f","pdesocup_m","dependientes_economicos"];
+    let RAW=[],FILTERED=[];
+    function loadCSV(){return new Promise((res,rej)=>{Papa.parse('demografia_morelos_clean.csv',{download:true,header:true,skipEmptyLines:true,complete:r=>res(r.data),error:rej});});}
+    function sanitizeRows(rows){return rows.filter(r=>r&&r.nom_mun).map(r=>{needed.forEach(k=>{if(!(k in r))r[k]=null;});return{nom_mun:String(r.nom_mun||'').trim(),nom_loc:String(r.nom_loc||'').trim(),pea:num(r.pea),pea_f:num(r.pea_f),pea_m:num(r.pea_m),pocupada:num(r.pocupada),pocupada_f:num(r.pocupada_f),pocupada_m:num(r.pocupada_m),pdesocup:num(r.pdesocup),pdesocup_f:num(r.pdesocup_f),pdesocup_m:num(r.pdesocup_m),dependientes_economicos:num(r.dependientes_economicos)};});}
+    const selMun=document.getElementById('selMun'),selLoc=document.getElementById('selLoc'),btnClear=document.getElementById('btnClear');
+    const uniques=(a,k)=>Array.from(new Set(a.map(o=>o[k]))).sort((a,b)=>(a||'').localeCompare(b||'','es',{sensitivity:'base'}));
+    function populateFilters(d){selMun.innerHTML='';const oA=document.createElement('option');oA.value='Todos';oA.textContent='Todos';selMun.appendChild(oA);uniques(d,'nom_mun').forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;selMun.appendChild(o);});selLoc.innerHTML='';const oAL=document.createElement('option');oAL.value='Todas';oAL.textContent='Todas';selLoc.appendChild(oAL);uniques(d,'nom_loc').forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;selLoc.appendChild(o);});}
+    function cascadeLocalidades(){const mun=selMun.value||'Todos';selLoc.innerHTML='';const oA=document.createElement('option');oA.value='Todas';oA.textContent='Todas';selLoc.appendChild(oA);const base=(mun==='Todos')?RAW:RAW.filter(r=>r.nom_mun===mun);uniques(base,'nom_loc').forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;selLoc.appendChild(o);});}
+    function sumRows(r){return r.reduce((a,x)=>{a.pea+=x.pea;a.pea_f+=x.pea_f;a.pea_m+=x.pea_m;a.pocupada+=x.pocupada;a.pocupada_f+=x.pocupada_f;a.pocupada_m+=x.pocupada_m;a.pdesocup+=x.pdesocup;a.pdesocup_f+=x.pdesocup_f;a.pdesocup_m+=x.pdesocup_m;a.dependientes_economicos+=x.dependientes_economicos;return a;},{pea:0,pea_f:0,pea_m:0,pocupada:0,pocupada_f:0,pocupada_m:0,pdesocup:0,pdesocup_f:0,pdesocup_m:0,dependientes_economicos:0});}
+    function renderKPIs(rows){const s=sumRows(rows);const tDes=(s.pea>0)?(s.pdesocup/s.pea*100):null;const tOcu=(s.pea>0)?(s.pocupada/s.pea*100):null;const dep=(s.pea>0)?(s.dependientes_economicos/s.pea):null;const partF=(s.pea_f+s.pea_m)>0?(s.pea_f/(s.pea_f+s.pea_m)*100):null;const partM=(s.pea_f+s.pea_m)>0?(s.pea_m/(s.pea_f+s.pea_m)*100):null;document.getElementById('kpiDesemp').textContent=formatPct(tDes||0);document.getElementById('kpiOcup').textContent=formatPct(tOcu||0);document.getElementById('kpiDep').textContent=dep?dep.toFixed(2):'–';document.getElementById('kpiFem').textContent=formatPct(partF||0);document.getElementById('kpiMas').textContent=formatPct(partM||0);}    
+    let chart;function renderChart(rows){const mun=selMun.value||'Todos';const loc=selLoc.value||'Todas';const map=new Map();rows.forEach(r=>{const k=(mun==='Todos')?r.nom_mun:(loc==='Todas'?r.nom_loc:`${mun} · ${loc}`);if(!map.has(k))map.set(k,[]);map.get(k).push(r);});const grouped=Array.from(map.entries()).map(([k,a])=>({label:k,...sumRows(a)}));const labels=grouped.map(g=>g.label);const oc=grouped.map(g=>g.pocupada);const de=grouped.map(g=>g.pdesocup);if(chart)chart.destroy();chart=new Chart(document.getElementById('chart'),{type:'bar',data:{labels,datasets:[{label:'Ocupados',data:oc,backgroundColor:'rgba(46,59,43,0.9)'},{label:'Desocupados',data:de,backgroundColor:'rgba(119,51,87,0.85)'}]},options:{responsive:true,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${formatNum(c.parsed.y)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>formatNum(v)}}}}});document.getElementById('chartSubtitle').textContent=(mun==='Todos')?'Agregado por municipio':(loc==='Todas'?`Agregado por localidad en ${mun}`:`Detalle de ${mun} · ${loc}`);}    
+    let table;function renderTable(r){if(!table){table=new Tabulator('#tabla',{data:r,layout:'fitDataStretch',columns:[{title:'Municipio',field:'nom_mun',headerFilter:true},{title:'Localidad',field:'nom_loc',headerFilter:true},{title:'PEA',field:'pea',formatter:c=>formatNum(c.getValue())},{title:'Ocupados',field:'pocupada',formatter:c=>formatNum(c.getValue())},{title:'Desocupados',field:'pdesocup',formatter:c=>formatNum(c.getValue())},{title:'PEA (F)',field:'pea_f',formatter:c=>formatNum(c.getValue())},{title:'PEA (M)',field:'pea_m',formatter:c=>formatNum(c.getValue())},{title:'Dependientes',field:'dependientes_economicos',formatter:c=>formatNum(c.getValue())}]});}else table.setData(r);}    
+    function applyFilters(){const mun=selMun.value||'Todos';const loc=selLoc.value||'Todas';FILTERED=RAW.filter(r=>(mun==='Todos'||r.nom_mun===mun)&&(loc==='Todas'||r.nom_loc===loc));renderKPIs(FILTERED);renderChart(FILTERED);renderTable(FILTERED);}    
+    (async function init(){try{const raw=await loadCSV();RAW=sanitizeRows(raw);populateFilters(RAW);applyFilters();selMun.addEventListener('change',()=>{cascadeLocalidades();applyFilters();});selLoc.addEventListener('change',applyFilters);btnClear.addEventListener('click',()=>{selMun.value='Todos';cascadeLocalidades();selLoc.value='Todas';applyFilters();});}catch(e){alert('Error cargando CSV.');console.error(e);}})();
+  </script>
+</body>
+</html>

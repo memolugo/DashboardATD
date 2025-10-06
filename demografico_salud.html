@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Demográfico · Salud (Afiliación a Servicios de Salud)</title>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Tabulator -->
+  <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root{
+      --verde-oscuro:#2E3B2B;
+      --verde-olivo:#71785b;
+      --dorado:#bc9b73;
+      --vino:#773357;
+      --cafe:#7C4A36;
+      --gris-suave:#CBCABE;
+      --fondo:#F8F9FB;
+      --borde:#E6E6E6;
+    }
+    body{ font-family:'Montserrat',sans-serif; background:var(--fondo); color:#1f2937; }
+    .card{ background:#fff; border-radius:1.25rem; box-shadow:0 10px 25px rgba(0,0,0,.06); border:1px solid var(--borde); }
+    .section-title{ color:var(--verde-oscuro); font-weight:600; letter-spacing:.2px; }
+    .kpi .label{ font-size:.8rem; color:#6b7280; font-weight:500; }
+    .kpi .value{ font-size:1.8rem; font-weight:700; }
+    .header-grad{ background:linear-gradient(90deg,var(--verde-oscuro),var(--verde-olivo)); }
+    .logo-img{ height:60px; width:auto; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.15)); }
+
+    /* Menú */
+    .menu-wrap{ background:#fff; box-shadow:0 4px 14px rgba(0,0,0,.06); border-bottom:1px solid var(--borde); }
+    .menu-btn{
+      background-color:var(--verde-olivo);
+      color:#fff; font-weight:600;
+      padding:.55rem 1.05rem; border-radius:9999px; transition:.25s;
+      font-size:.92rem;
+    }
+    .menu-btn:hover{ background-color:var(--vino); transform:translateY(-2px); }
+    .menu-btn.active{ background-color:var(--vino); box-shadow:0 6px 16px rgba(119,51,87,.25); }
+
+    /* Tabla */
+    #tabla .tabulator-header{ background:#f7f7f7; }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="w-full header-grad text-white py-4 px-6">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+             alt="ATD" class="logo-img"/>
+        <h1 class="text-2xl font-bold tracking-tight">Afiliación a Servicios de Salud</h1>
+      </div>
+      <span class="text-xs bg-white/10 px-3 py-1 rounded-full">Fuente: INEGI 2020</span>
+    </div>
+  </header>
+
+  <!-- MENÚ -->
+  <nav class="menu-wrap w-full">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-center gap-2 px-4 py-3">
+      <a href="demografico_poblacion.html"     class="menu-btn">Población</a>
+      <a href="demografico_educacion.html"     class="menu-btn">Educación</a>
+      <a href="demografico_economia.html"      class="menu-btn">Economía</a>
+      <a href="demografico_salud.html"         class="menu-btn active">Salud</a>
+      <a href="demografico_vivienda.html"      class="menu-btn">Vivienda y Servicios Básicos</a>
+      <a href="demografico_diversidad.html"    class="menu-btn">Diversidad Cultural</a>
+      <a href="demografico_limitaciones.html"  class="menu-btn">Limitaciones y Discapacidades</a>
+      <a href="demografico.html"               class="menu-btn">Inicio</a>
+    </div>
+  </nav>
+
+  <!-- CONTENIDO -->
+  <main class="max-w-7xl mx-auto p-4 space-y-5">
+    <!-- Filtros -->
+    <section class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg section-title">Filtros</h2>
+        <span class="text-xs text-gray-500">Cascada: Municipio → Localidad</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Municipio (nom_mun)</label>
+          <select id="selMun" class="w-full border border-[var(--borde)] rounded-xl p-2.5 focus:ring-2 focus:ring-[var(--dorado)]"></select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Localidad (nom_loc)</label>
+          <select id="selLoc" class="w-full border border-[var(--borde)] rounded-xl p-2.5 focus:ring-2 focus:ring-[var(--dorado)]"></select>
+        </div>
+        <div class="flex items-end">
+          <button id="btnClear" class="ml-auto bg-[var(--vino)] hover:brightness-110 transition text-white px-4 py-2 rounded-xl shadow">Limpiar filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="card p-4 kpi"><div class="label">Tasa de afiliación</div><div id="kpiAfil" class="value text-[var(--verde-oscuro)]">–</div></div>
+      <div class="card p-4 kpi"><div class="label">% sin afiliación</div><div id="kpiNoAfil" class="value text-[var(--vino)]">–</div></div>
+      <div class="card p-4 kpi"><div class="label">% IMSS</div><div id="kpiIMSS" class="value text-[var(--dorado)]">–</div></div>
+      <div class="card p-4 kpi"><div class="label">% ISSSTE</div><div id="kpiISSSTE" class="value text-[var(--verde-olivo)]">–</div></div>
+      <div class="card p-4 kpi"><div class="label">% INSABI</div><div id="kpiINSABI" class="value text-[var(--cafe)]">–</div></div>
+    </section>
+
+    <!-- Gráficos -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-lg section-title">Afiliación por institución</h2>
+          <span id="chartBarSubtitle" class="text-xs text-gray-500"></span>
+        </div>
+        <canvas id="chartBar" height="120"></canvas>
+      </div>
+      <div class="card p-5 flex items-center justify-center">
+        <div>
+          <h2 class="text-base section-title mb-1">Con vs Sin afiliación</h2>
+          <!-- Dona más pequeña -->
+          <canvas id="chartPie" width="180" height="180"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabla -->
+    <section class="card p-5">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg section-title">Detalle de datos</h2>
+        <span class="text-xs text-gray-400">Click en encabezados para ordenar</span>
+      </div>
+      <div id="tabla" class="rounded-xl overflow-hidden border border-[var(--borde)]"></div>
+    </section>
+  </main>
+
+  <!-- ====== LÓGICA DEL TABLERO ====== -->
+  <script>
+    // Utilidades numéricas y formato
+    const num = (v)=>{ if(v===null||v===undefined) return 0; const n=(typeof v==='number')?v:parseFloat(String(v).replace(/,/g,'')); return isNaN(n)?0:n; };
+    const pct = (n,d)=> (d>0? (n/d*100): 0);
+    const fmtPct = (x)=> isFinite(x)? x.toFixed(1)+'%' : '–';
+    const fmtNum = (x)=> new Intl.NumberFormat('es-MX').format(Math.round(x));
+
+    // Campos requeridos del CSV
+    const needed = [
+      "nom_mun","nom_loc",
+      "pder_ss","psinder",
+      "pder_imss","pder_iste","pder_istee","pafil_pdom",
+      "pder_segp","pder_imssb","pafil_ipriv","pafil_otrai"
+    ];
+
+    let RAW=[], FILTERED=[];
+    const selMun = document.getElementById('selMun');
+    const selLoc = document.getElementById('selLoc');
+    const btnClear = document.getElementById('btnClear');
+
+    // Cargar CSV
+    function loadCSV(){
+      return new Promise((resolve,reject)=>{
+        Papa.parse('demografia_morelos_clean.csv',{
+          download:true, header:true, skipEmptyLines:true,
+          complete:(res)=> resolve(res.data),
+          error: reject
+        });
+      });
+    }
+
+    // Sanitizar filas
+    function sanitizeRows(rows){
+      return rows
+        .filter(r=> r && (r.nom_mun || r.nom_loc))
+        .map(r=>{
+          needed.forEach(k=>{ if(!(k in r)) r[k]= null; });
+          return {
+            nom_mun: String(r.nom_mun||'').trim(),
+            nom_loc: String(r.nom_loc||'').trim(),
+            pder_ss: num(r.pder_ss),     psinder: num(r.psinder),
+            pder_imss: num(r.pder_imss), pder_iste: num(r.pder_iste), pder_istee: num(r.pder_istee),
+            pafil_pdom: num(r.pafil_pdom), pder_segp: num(r.pder_segp), pder_imssb: num(r.pder_imssb),
+            pafil_ipriv: num(r.pafil_ipriv), pafil_otrai: num(r.pafil_otrai),
+          };
+        });
+    }
+
+    // Helpers filtros
+    const uniques=(arr,key)=> Array.from(new Set(arr.map(o=>o[key]))).sort((a,b)=> (a||'').localeCompare(b||'','es',{sensitivity:'base'}));
+
+    function populateFilters(data){
+      // Municipio
+      selMun.innerHTML='';
+      const oAllM = document.createElement('option'); oAllM.value='Todos'; oAllM.textContent='Todos';
+      selMun.appendChild(oAllM);
+      uniques(data,'nom_mun').forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; selMun.appendChild(o); });
+
+      // Localidad (todas)
+      selLoc.innerHTML='';
+      const oAllL = document.createElement('option'); oAllL.value='Todas'; oAllL.textContent='Todas';
+      selLoc.appendChild(oAllL);
+      uniques(data,'nom_loc').forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; selLoc.appendChild(o); });
+    }
+
+    function cascadeLocalidades(){
+      const mun = selMun.value || 'Todos';
+      selLoc.innerHTML='';
+      const oAllL = document.createElement('option'); oAllL.value='Todas'; oAllL.textContent='Todas'; selLoc.appendChild(oAllL);
+      const base = (mun==='Todos')? RAW : RAW.filter(r=> r.nom_mun===mun);
+      uniques(base,'nom_loc').forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; selLoc.appendChild(o); });
+    }
+
+    // Agregación
+    function sumRows(rows){
+      return rows.reduce((a,r)=>{
+        a.pder_ss += r.pder_ss; a.psinder += r.psinder;
+        a.pder_imss += r.pder_imss; a.pder_iste += r.pder_iste; a.pder_istee += r.pder_istee;
+        a.pafil_pdom += r.pafil_pdom; a.pder_segp += r.pder_segp; a.pder_imssb += r.pder_imssb;
+        a.pafil_ipriv += r.pafil_ipriv; a.pafil_otrai += r.pafil_otrai;
+        return a;
+      }, {pder_ss:0,psinder:0,pder_imss:0,pder_iste:0,pder_istee:0,pafil_pdom:0,pder_segp:0,pder_imssb:0,pafil_ipriv:0,pafil_otrai:0});
+    }
+
+    function groupBy(rows, key){
+      const map = new Map();
+      rows.forEach(r=>{
+        const k = r[key] || '(Sin dato)';
+        if(!map.has(k)) map.set(k, []);
+        map.get(k).push(r);
+      });
+      return Array.from(map.entries()).map(([k,arr])=> ({ group:k, ...sumRows(arr) }));
+    }
+
+    // KPIs
+    function renderKPIs(rows){
+      const s = sumRows(rows);
+      const totalPob = s.pder_ss + s.psinder;
+      document.getElementById('kpiAfil').textContent   = fmtPct(pct(s.pder_ss, totalPob));
+      document.getElementById('kpiNoAfil').textContent = fmtPct(pct(s.psinder, totalPob));
+      document.getElementById('kpiIMSS').textContent   = fmtPct(pct(s.pder_imss, s.pder_ss));
+      document.getElementById('kpiISSSTE').textContent = fmtPct(pct(s.pder_iste, s.pder_ss));
+      document.getElementById('kpiINSABI').textContent = fmtPct(pct(s.pder_segp, s.pder_ss));
+    }
+
+    // Charts
+    let chartBar, chartPie;
+
+    function renderBar(rows){
+      const mun = selMun.value || 'Todos';
+      const loc = selLoc.value || 'Todas';
+      const dataset = (mun==='Todos')
+        ? groupBy(rows,'nom_mun')
+        : (loc==='Todas' ? groupBy(rows,'nom_loc') : [{group:`${mun} · ${loc}`, ...sumRows(rows)}]);
+
+      const labels = dataset.map(d=> d.group);
+      const imss   = dataset.map(d=> d.pder_imss);
+      const issste = dataset.map(d=> d.pder_iste);
+      const isstee = dataset.map(d=> d.pder_istee);
+      const pdom   = dataset.map(d=> d.pafil_pdom);
+      const insabi = dataset.map(d=> d.pder_segp);
+      const imssb  = dataset.map(d=> d.pder_imssb);
+      const priv   = dataset.map(d=> d.pafil_ipriv);
+      const otros  = dataset.map(d=> d.pafil_otrai);
+
+      if(chartBar) chartBar.destroy();
+      chartBar = new Chart(document.getElementById('chartBar'),{
+        type:'bar',
+        data:{
+          labels,
+          datasets:[
+            {label:'IMSS', data:imss},
+            {label:'ISSSTE', data:issste},
+            {label:'ISSSTE estatal', data:isstee},
+            {label:'PEMEX/SEDENA/SEMAR', data:pdom},
+            {label:'INSABI/Seguro Popular', data:insabi},
+            {label:'IMSS-BIENESTAR', data:imssb},
+            {label:'Privado', data:priv},
+            {label:'Otra institución', data:otros},
+          ]
+        },
+        options:{
+          responsive:true,
+          plugins:{
+            legend:{ position:'bottom' },
+            tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${fmtNum(c.parsed.y)}` } }
+          },
+          scales:{
+            x:{ stacked:true },
+            y:{ stacked:true, beginAtZero:true, ticks:{ callback:v=> fmtNum(v) } }
+          }
+        }
+      });
+
+      document.getElementById('chartBarSubtitle').textContent =
+        (mun==='Todos') ? 'Agregado por municipio' :
+        (loc==='Todas') ? `Agregado por localidad en ${mun}` : `Detalle de ${mun} · ${loc}`;
+    }
+
+    function renderPie(rows){
+      const s = sumRows(rows);
+      const data = [s.pder_ss, s.psinder];
+      if(chartPie) chartPie.destroy();
+      chartPie = new Chart(document.getElementById('chartPie'),{
+        type:'pie',
+        data:{ labels:['Con afiliación','Sin afiliación'], datasets:[{ data }] },
+        options:{
+          responsive:false, // tamaño fijo del canvas 180x180
+          plugins:{
+            legend:{ position:'bottom' },
+            tooltip:{ callbacks:{ label:c=>{
+              const total = data.reduce((a,b)=>a+b,0);
+              const p = total>0 ? (c.parsed/total*100) : 0;
+              return `${c.label}: ${fmtNum(c.parsed)} (${p.toFixed(1)}%)`;
+            }}}
+          }
+        }
+      });
+    }
+
+    // Tabla
+    let table;
+    function renderTable(rows){
+      if(!table){
+        table = new Tabulator('#tabla', {
+          data: rows,
+          layout: 'fitDataStretch',
+          columns:[
+            {title:'Municipio', field:'nom_mun', headerFilter:true, headerSort:true},
+            {title:'Localidad', field:'nom_loc', headerFilter:true, headerSort:true},
+            {title:'Con afiliación', field:'pder_ss', formatter:c=>fmtNum(c.getValue())},
+            {title:'Sin afiliación', field:'psinder', formatter:c=>fmtNum(c.getValue())},
+            {title:'IMSS', field:'pder_imss', formatter:c=>fmtNum(c.getValue())},
+            {title:'ISSSTE', field:'pder_iste', formatter:c=>fmtNum(c.getValue())},
+            {title:'ISSSTE estatal', field:'pder_istee', formatter:c=>fmtNum(c.getValue())},
+            {title:'PEMEX/SEDENA/SEMAR', field:'pafil_pdom', formatter:c=>fmtNum(c.getValue())},
+            {title:'INSABI/Seguro Popular', field:'pder_segp', formatter:c=>fmtNum(c.getValue())},
+            {title:'IMSS-BIENESTAR', field:'pder_imssb', formatter:c=>fmtNum(c.getValue())},
+            {title:'Privado', field:'pafil_ipriv', formatter:c=>fmtNum(c.getValue())},
+            {title:'Otra institución', field:'pafil_otrai', formatter:c=>fmtNum(c.getValue())},
+          ]
+        });
+      }else{
+        table.setData(rows);
+      }
+    }
+
+    // Aplicar filtros
+    function applyFilters(){
+      const mun = selMun.value || 'Todos';
+      const loc = selLoc.value || 'Todas';
+      FILTERED = RAW.filter(r =>
+        (mun==='Todos' || r.nom_mun===mun) &&
+        (loc==='Todas' || r.nom_loc===loc)
+      );
+      renderKPIs(FILTERED);
+      renderBar(FILTERED);
+      renderPie(FILTERED);
+      renderTable(FILTERED);
+    }
+
+    // Init
+    (async function init(){
+      try{
+        const raw = await loadCSV();
+        RAW = sanitizeRows(raw);
+        populateFilters(RAW);
+        applyFilters();
+
+        selMun.addEventListener('change', ()=>{ cascadeLocalidades(); applyFilters(); });
+        selLoc.addEventListener('change', applyFilters);
+        btnClear.addEventListener('click', ()=>{ selMun.value='Todos'; cascadeLocalidades(); selLoc.value='Todas'; applyFilters(); });
+      }catch(err){
+        console.error(err);
+        alert('No se pudo cargar el CSV. Asegúrate de que "demografia_morelos_clean.csv" esté junto al HTML y que los encabezados existan.');
+      }
+    })();
+  </script>
+</body>
+</html>
