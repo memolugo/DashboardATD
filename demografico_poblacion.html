@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Demografía Morelos — Población</title>
+
+  <!-- Google Fonts: Montserrat -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Leaflet MarkerCluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Tailwind (solo utilidades, no cambia tu estilo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ====== Paleta institucional ====== */
+    :root { --verde:#2e3b2b; --oliva:#71785b; --dorado:#bc9b73; --bg:#f6f7f6; --vino:#773357; --gris:#CBCABE; }
+
+    /* ====== Reset y helpers para móviles ====== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; background: var(--bg); max-width: 100%; overflow-x: hidden; }
+    img, svg { max-width: 100%; height: auto; }
+    a, button, .tab { touch-action: manipulation; }
+
+    /* Quitar scrollbar de contenedores horizontales (tabs) */
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    /* ====== Layout base ====== */
+    body { margin: 0; font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#222; }
+    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+
+    /* Header institucional */
+    header { position: sticky; top: 0; z-index: 40; color: #fff; background: linear-gradient(100deg, var(--verde), var(--oliva)); padding-top: calc(10px + env(safe-area-inset-top)); }
+    .header-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px 0; }
+    .logo-img { height: 56px; width: auto; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.15)); }
+    header h1 { margin: 0; font-weight: 700; line-height: 1.15; font-size: clamp(16px, 4.2vw, 28px); }
+    header .sub { font-size: clamp(10px, 2.5vw, 12px); opacity: .85; margin-top: 2px; }
+
+    nav.tabs { padding: 8px 0 12px; }
+    nav.tabs .track { display: flex; gap: 8px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+    nav.tabs .track .tab { scroll-snap-align: center; display: inline-block; padding: .5rem 1rem; border-radius: 9999px; color: #fff; opacity: .95; background: transparent; border: 1px solid rgba(255,255,255,.25); }
+    nav.tabs .track .tab.active { background: #fff; color: var(--verde); font-weight: 700; border-color: #fff; }
+
+    /* Barra de filtros */
+    .filters-bar { background: #fff; border-bottom: 1px solid #eee; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; }
+    .controls select, .controls input, .controls button { padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; background: #fff; min-width: 160px; }
+    .controls button { background: var(--oliva); color: #fff; border: none; }
+    .controls button.secondary { background: #9aa0a6; }
+
+    /* Área principal */
+    main { display: grid; grid-template-columns: 360px 1fr; gap: 12px; padding: 12px 0; }
+    #sidebar { background: #fff; border: 1px solid #eee; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 150px); overflow: auto; }
+    .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .kpi { background: #fff; border: 1px solid #eee; border-radius: 14px; padding: 10px; }
+    .kpi .label { font-size: 12px; color: #666; }
+    .kpi .value { font-size: clamp(18px, 4.2vw, 22px); font-weight: 800; color: var(--verde); }
+    #map { height: min(60dvh, 60svh, 60vh); border: 1px solid #eee; border-radius: 14px; }
+    #results { border-top: 1px dashed #eee; padding-top: 8px; font-size: 14px; }
+    .item { padding: 8px 0; border-bottom: 1px solid #f1f1f1; }
+    .item:last-child { border-bottom: 0; }
+    .muted { color: #777; font-size: 12px; }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 1024px) {
+      main { grid-template-columns: 1fr; }
+      #sidebar { max-height: none; }
+      #map { height: min(56dvh, 56svh, 56vh); }
+    }
+
+    @media (max-width: 768px) {
+      .header-row { grid-template-columns: auto 1fr; }
+      .logo-img { height: 48px; }
+      .chip-group { display: none; }
+      .controls { gap: 8px; }
+      .controls > * { flex: 1 1 100%; min-width: 0; }
+      .controls button { width: 100%; }
+      .kpis { grid-template-columns: 1fr; }
+      nav.tabs .track { padding-bottom: 2px; }
+    }
+
+    @media (max-width: 420px) {
+      .logo-img { height: 42px; }
+      #map { height: min(54dvh, 54svh, 54vh); }
+      .controls select, .controls input, .controls button { font-size: 13px; padding: 9px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ===== HEADER ===== -->
+  <header>
+    <div class="container">
+      <div class="header-row">
+        <img class="logo-img" src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png" alt="Gobierno de Morelos"/>
+        <div>
+          <h1>Situación Económica y Laboral</h1>
+          <div class="sub">Fuente: INEGI 2020</div>
+        </div>
+        <div class="chip-group">
+          <span class="no-scrollbar" style="display:inline-flex; gap:8px; align-items:center;">
+            <span class="" style="border:1px solid rgba(255,255,255,.3); padding:.25rem .6rem; border-radius:9999px; font-size:12px;">UX·UI</span>
+            <span class="" style="border:1px solid rgba(255,255,255,.3); padding:.25rem .6rem; border-radius:9999px; font-size:12px;">v1.0</span>
+          </span>
+        </div>
+      </div>
+      <nav class="tabs">
+        <div class="track no-scrollbar">
+          <a href="demografico.html" class="tab">Inicio</a>
+          <a href="demografico_poblacion.html" class="tab active">Población</a>
+          <a href="demografico_educacion.html" class="tab">Educación</a>
+          <span class="tab" aria-current="page">Economía</span>
+          <a href="demografico_salud.html" class="tab">Salud</a>
+          <a href="demografico_vivienda.html" class="tab">Vivienda y Servicios</a>
+          <a href="demografico_diversidad.html" class="tab">Diversidad Cultural</a>
+          <a href="demografico_limitaciones.html" class="tab">Limitaciones</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== Filtros ===== -->
+  <section class="filters-bar">
+    <div class="container">
+      <div class="controls">
+        <select id="munSelect"><option value="">Todos los municipios</option></select>
+        <input id="searchInput" placeholder="Buscar localidad..." />
+        <button id="btnBuscar">Buscar</button>
+        <button id="btnLimpiar" class="secondary">Limpiar</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="container">
+    <main>
+      <aside id="sidebar">
+        <div class="kpis">
+          <div class="kpi"><div class="label">Localidades</div><div class="value" id="kpiLocalidades">—</div></div>
+          <div class="kpi"><div class="label">Población total</div><div class="value" id="kpiPoblacion">—</div></div>
+        </div>
+        <div>
+          <strong>Resultados</strong>
+          <div id="results" class="muted">Usa los filtros para listar localidades.</div>
+        </div>
+      </aside>
+      <section id="map" aria-label="Mapa de localidades"></section>
+    </main>
+  </div>
+
+  <script>
+    // 🔑 CREDENCIALES
+    const SUPABASE_URL = "https://tlamatiloyan-api.morelos.gob.mx";
+    const SUPABASE_ANON_KEY = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Estado
+    let rawRows = [];
+    let allRows = [];
+    let markersLayer, map;
+    const markerIndex = {}; // cvegeo → marker
+
+    // Capas
+    let municipiosLayer = null;
+
+    // Utilidades
+    const fmt = (n) => (n ?? 0).toLocaleString('es-MX');
+    const toNum = (x) => { const n = Number(x); return Number.isFinite(n) ? n : 0; };
+
+    function initMap() {
+      map = L.map('map').setView([18.8, -99.0], 9);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      markersLayer = L.markerClusterGroup();
+      map.addLayer(markersLayer);
+    }
+
+    // Helper: seleccionar municipio por nombre (case-insensitive)
+    function selectMunicipioByName(nombre) {
+      const sel = document.getElementById('munSelect');
+      const target = (nombre || '').trim().toLowerCase();
+      let found = false;
+      for (const opt of sel.options) {
+        if (opt.value.trim().toLowerCase() === target) { sel.value = opt.value; found = true; break; }
+      }
+      return found;
+    }
+
+    // Cargar y sombrear municipios (GeoJSON) — popup + sincroniza filtro
+    async function addMunicipiosLayer() {
+      try {
+        const res = await fetch("morelos_municipios.geojson");
+        const geojson = await res.json();
+        const estiloBase = { color: "#2e3b2b", weight: 1.2, fillColor: "#89a27c", fillOpacity: 0.35 };
+        const estiloHover = { color: "#2e3b2b", weight: 2, fillColor: "#9fb48c", fillOpacity: 0.55 };
+        const getMunName = (p={}) => p.NOM_MUN || p.nom_mun || p.MUNICIPIO || p.municipio || p.Nombre || p.nombre || "Municipio";
+        municipiosLayer = L.geoJSON(geojson, {
+          style: estiloBase,
+          onEachFeature: (feature, layer) => {
+            const nombre = getMunName(feature.properties || {});
+            layer.bindPopup(`<strong>${nombre}</strong>`, { closeButton: true });
+            layer.on({
+              mouseover: (e) => { e.target.setStyle(estiloHover); e.target.bringToFront(); },
+              mouseout:  (e) => municipiosLayer.resetStyle(e.target),
+              click:     (e) => { map.fitBounds(e.target.getBounds(), { padding: [10,10] }); layer.openPopup(e.latlng); if (selectMunicipioByName(nombre)) applyFilters(); }
+            });
+          }
+        }).addTo(map);
+        if (!markersLayer || markersLayer.getLayers().length === 0) { map.fitBounds(municipiosLayer.getBounds(), { padding:[10,10] }); }
+      } catch (err) { console.error("Error GeoJSON:", err); }
+    }
+
+    // Dedupe por cvegeo (fallback municipio|localidad)
+    function dedupe(rows) { const seen = new Set(), out = []; for (const r of rows) { const key = r.cvegeo ?? `${r.nom_mun ?? ''}|${r.nom_loc ?? ''}`.toLowerCase(); if (seen.has(key)) continue; seen.add(key); out.push(r);} return out; }
+
+    function fillMunicipios(rows) {
+      const select = document.getElementById('munSelect');
+      const municipios = Array.from(new Set(rows.map(r => r.nom_mun).filter(Boolean))).sort();
+      municipios.forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select.appendChild(opt); });
+    }
+
+    function renderMarkers(rows) {
+      markersLayer.clearLayers(); Object.keys(markerIndex).forEach(k => delete markerIndex[k]);
+      rows.forEach(r => {
+        if (r.latitud_decimal != null && r.longitud_decimal != null) {
+          const m = L.marker([r.latitud_decimal, r.longitud_decimal]);
+          m.bindPopup(`
+            <div style="min-width:220px">
+              <strong>${r.nom_loc ?? '(Sin nombre)'}</strong><br/>
+              <span class="muted">${r.nom_mun ?? ''}</span><br/>
+              <small>CVEGEO: ${r.cvegeo ?? '—'}</small><br/>
+              <small>Población total: ${fmt(toNum(r.pobtot))}</small><br/>
+              <small>Femenina: ${fmt(toNum(r.pobfem))}</small><br/>
+              <small>Masculina: ${fmt(toNum(r.pobmas))}</small>
+            </div>
+          `);
+          markersLayer.addLayer(m); if (r.cvegeo) markerIndex[r.cvegeo] = m;
+        }
+      });
+      if (markersLayer.getLayers().length) { map.fitBounds(markersLayer.getBounds().pad(0.1)); }
+    }
+
+    function updateKpisAndList(rows) {
+      const depuradas = dedupe(rows);
+      const totalPoblacion = depuradas.reduce((acc, r) => acc + toNum(r.pobtot), 0);
+      document.getElementById('kpiLocalidades').textContent = fmt(depuradas.length);
+      document.getElementById('kpiPoblacion').textContent = fmt(totalPoblacion);
+      const results = document.getElementById('results');
+      if (!depuradas.length) { results.innerHTML = '<span class="muted">Sin coincidencias</span>'; return; }
+      results.innerHTML = depuradas.slice(0, 150).map(r => `
+        <div class="item" data-cvegeo="${r.cvegeo ?? ''}">
+          <a href="#" class="loc-link" style="color:#0a58ca;text-decoration:underline">${r.nom_loc ?? ''}</a><br/>
+          <span class="muted">${r.nom_mun ?? ''}</span><br/>
+          <small>Población total: ${fmt(toNum(r.pobtot))}</small><br/>
+          <small>Femenina: ${fmt(toNum(r.pobfem))}</small><br/>
+          <small>Masculina: ${fmt(toNum(r.pobmas))}</small>
+        </div>
+      `).join('') + (depuradas.length > 150 ? `<div class="muted">(+${depuradas.length-150} más)</div>` : '');
+      results.querySelectorAll('.loc-link').forEach(link => {
+        link.addEventListener('click', (e) => { e.preventDefault(); const cve = link.closest('.item').dataset.cvegeo; const marker = cve ? markerIndex[cve] : null; if (marker) { map.setView(marker.getLatLng(), 15); marker.openPopup(); } });
+      });
+    }
+
+    // Carga paginada (incluye pobfem y pobmas)
+    async function loadAllData() {
+      const pageSize = 1000; let from = 0, aggregated = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from('demografia_morelos')
+          .select('cvegeo, nom_ent, nom_mun, nom_loc, pobtot, pobfem, pobmas, latitud_decimal, longitud_decimal')
+          .range(from, from + pageSize - 1);
+        if (error) { console.error('Supabase error:', error); alert('Error al cargar datos de Supabase.'); break; }
+        if (!data || !data.length) break; aggregated = aggregated.concat(data);
+        if (data.length < pageSize) break; from += pageSize;
+      }
+      return aggregated;
+    }
+
+    function applyFilters() {
+      const mun = document.getElementById('munSelect').value.trim();
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      let rows = [...allRows];
+      if (mun) rows = rows.filter(r => (r.nom_mun || '').toLowerCase() === mun.toLowerCase());
+      if (q)   rows = rows.filter(r => (r.nom_loc || '').toLowerCase().includes(q));
+      renderMarkers(rows); updateKpisAndList(rows);
+    }
+
+    (async function init() {
+      initMap();
+      await addMunicipiosLayer();
+      rawRows = await loadAllData(); if (!rawRows.length) return;
+      allRows = dedupe(rawRows);
+      fillMunicipios(allRows); renderMarkers(allRows); updateKpisAndList(allRows);
+      document.getElementById('munSelect').addEventListener('change', applyFilters);
+      document.getElementById('btnBuscar').addEventListener('click', applyFilters);
+      document.getElementById('btnLimpiar').addEventListener('click', () => {
+        document.getElementById('munSelect').value = '';
+        document.getElementById('searchInput').value = '';
+        renderMarkers(allRows); updateKpisAndList(allRows);
+        if (municipiosLayer) map.fitBounds(municipiosLayer.getBounds(), { padding: [10,10] });
+      });
+      document.getElementById('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+    })();
+  </script>
+</body>
+</html>

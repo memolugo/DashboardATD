@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Demográfico · Salud (Afiliación a Servicios de Salud)</title>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Tabulator -->
+  <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+  <!-- Chart.js (solo doughnut) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --verde-oscuro:#2E3B2B;
+      --verde-olivo:#71785b;
+      --dorado:#bc9b73;
+      --vino:#773357;
+      --cafe:#7C4A36;
+      --gris-suave:#CBCABE;
+      --fondo:#F8F9FB;
+      --borde:#E6E6E6;
+      --privado:#5b8fb9;
+      --otros:#a0a0a0;
+    }
+    body{ font-family:'Montserrat',sans-serif; background:var(--fondo); color:#1f2937; }
+    .card{ background:#fff; border-radius:1.25rem; box-shadow:0 10px 25px rgba(0,0,0,.06); border:1px solid var(--borde); }
+    .section-title{ color:var(--verde-oscuro); font-weight:600; letter-spacing:.2px; }
+    .chip{ border:1px solid var(--gris-suave); padding:.25rem .6rem; border-radius:9999px; font-size:.75rem }
+    #tabla .tabulator-header{ background:#f7f7f7; }
+    /* KPIs */
+    .kpi{ position:relative; overflow:hidden; }
+    .kpi .label{ font-size:.78rem; color:#6b7280; font-weight:600; }
+    .kpi .value{ font-size:1.6rem; font-weight:800; line-height:1.1; }
+    .kpi .hint { font-size:.72rem; color:#6b7280; }
+    .kpi .icon{ position:absolute; right:12px; bottom:-6px; font-size:54px; opacity:.08 }
+    /* Loader */
+    .loader-backdrop{
+      position:fixed; inset:0; background:rgba(255,255,255,.85);
+      display:flex; align-items:center; justify-content:center; z-index:70;
+      backdrop-filter: blur(2px);
+    }
+    /* Header institucional (NO modificar) */
+    .header-grad{ background:linear-gradient(90deg,var(--verde-oscuro),var(--verde-olivo)); }
+    .logo-img{ height:60px; width:auto; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.15)); }
+    .sticky-header{ position:sticky; top:0; z-index:60; }
+    .tab{ padding:.5rem 1rem; border-radius:9999px; background:transparent; color:rgba(255,255,255,.9); text-decoration:none; border:1px solid transparent; display:inline-block; }
+    .tab:hover{ background:rgba(255,255,255,.12); }
+    .tab.active{ background:#fff; color:var(--verde-oscuro); font-weight:700; border-color:transparent; }
+
+    /* Etiquetas (badges) */
+    .badge{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:.75rem; padding:.65rem .8rem; border:1px solid var(--borde);
+      border-radius:9999px; background:#fff; min-width: 220px;
+      box-shadow:0 4px 10px rgba(0,0,0,.04);
+    }
+    .badge .name{ font-size:.85rem; font-weight:700; }
+    .badge .vals{ display:flex; align-items:baseline; gap:.5rem; }
+    .badge .count{ font-weight:700; }
+    .badge .pct{ font-size:.8rem; color:#6b7280; }
+    .swatch{ width:10px; height:10px; border-radius:3px; }
+
+    /* Lista de top items */
+    .tag{
+      display:inline-flex; align-items:center; gap:.5rem;
+      padding:.35rem .6rem; border:1px solid var(--borde);
+      border-radius:9999px; background:#fff; font-size:.85rem;
+    }
+    .tag .val{ font-weight:700; }
+  </style>
+</head>
+<body>
+  <!-- ===== LOADER ===== -->
+  <div id="loader" class="loader-backdrop">
+    <div class="text-center">
+      <svg class="mx-auto animate-spin" width="44" height="44" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="#E6E6E6" stroke-width="4"/>
+        <path d="M22 12a10 10 0 0 0-10-10" stroke="var(--verde-oscuro)" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <p class="mt-3 text-sm text-gray-600">Cargando datos…</p>
+    </div>
+  </div>
+
+  <!-- ===== HEADER + NAV (idéntico, sin cambios) ===== -->
+  <header class="sticky-header header-grad text-white">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex items-center justify-between py-4">
+        <div class="flex items-center gap-4">
+          <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+               alt="ATD · Gobierno del Estado de Morelos" class="logo-img"/>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight">Afiliación a Servicios de Salud</h1>
+            <p class="text-xs/relaxed text-white/80">Fuente: INEGI 2020   <span class="font-semibold"></span></p>
+          </div>
+        </div>
+        <div class="hidden md:flex items-center gap-2">
+          <span class="chip bg-white/10 text-white">UX·UI institucional</span>
+          <span class="chip bg-white/10 text-white">v1.5</span>
+        </div>
+      </div>
+      <nav class="pb-3">
+        <div class="flex flex-wrap gap-2">
+          <a href="demografico.html" class="tab">Inicio</a>
+          <a href="demografico_poblacion.html" class="tab">Población</a>
+          <a href="demografico_educacion.html" class="tab">Educación</a>
+          <a href="demografico_economia.html" class="tab">Economía</a>
+          <span class="tab active">Salud</span>
+          <a href="demografico_vivienda.html" class="tab">Vivienda y Servicios</a>
+          <a href="demografico_diversidad.html" class="tab">Diversidad Cultural</a>
+          <a href="demografico_limitaciones.html" class="tab">Limitaciones</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== CONTENIDO ===== -->
+  <main class="max-w-7xl mx-auto p-4 space-y-8">
+    <!-- Filtros -->
+    <section class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg section-title">Filtros</h2>
+        <span class="text-xs text-gray-500">Cascada: Municipio → Localidad</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Municipio</label>
+          <select id="selMun" class="w-full border border-[var(--borde)] rounded-xl p-2.5 focus:ring-2 focus:ring-[var(--dorado)]"></select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">Localidad </label>
+          <select id="selLoc" class="w-full border border-[var(--borde)] rounded-xl p-2.5 focus:ring-2 focus:ring-[var(--dorado)]"></select>
+        </div>
+        <div class="flex items-end">
+          <button id="btnClear" class="ml-auto bg-[var(--dorado)] hover:brightness-110 transition text-white px-4 py-2 rounded-xl shadow">Limpiar filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resumen -->
+    <section class="card p-5">
+      <h2 class="text-lg section-title mb-2">Resumen</h2>
+      <p id="resumen" class="text-sm text-gray-700 leading-relaxed">—</p>
+    </section>
+
+    <!-- KPIs (solo 2) -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+      <div class="card p-4 kpi">
+        <div class="label">Tasa de afiliación</div>
+        <div id="kpiAfil" class="value text-[var(--verde-oscuro)]">–</div>
+        <div class="hint">De la población total</div>
+        <div class="icon">🩺</div>
+      </div>
+      <div class="card p-4 kpi">
+        <div class="label">% sin afiliación</div>
+        <div id="kpiNoAfil" class="value text-[var(--vino)]">–</div>
+        <div class="hint">De la población total</div>
+        <div class="icon">⚠️</div>
+      </div>
+    </section>
+
+    <!-- Etiquetas en lugar de gráfica saturada -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Etiquetas por institución -->
+      <div class="lg:col-span-2 card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg section-title">Instituciones (valores y % de afiliados)</h2>
+          <span id="labelsSubtitle" class="text-xs text-gray-500"></span>
+        </div>
+
+        <!-- Selector para Top-N ámbito -->
+        <div class="mb-3 flex items-center gap-3 text-sm">
+          <label class="inline-flex items-center gap-1">
+            Ámbito:
+            <select id="selAmbito" class="border border-[var(--borde)] rounded-lg px-2 py-1">
+              <option value="mun">Municipio (Top 10)</option>
+              <option value="loc">Localidad (Top 10)</option>
+              <option value="estado" selected>Estado (total)</option>
+            </select>
+          </label>
+          <label class="inline-flex items-center gap-1">
+            Enfoque:
+            <select id="selFocus" class="border border-[var(--borde)] rounded-lg px-2 py-1">
+              <option value="total" selected>Total afiliados</option>
+              <option value="IMSS">IMSS</option>
+              <option value="ISSSTE">ISSSTE</option>
+              <option value="ISSTEE">ISSSTE estatal</option>
+              <option value="PDOM">PEMEX/SEDENA/SEMAR</option>
+              <option value="INSABI">INSABI/Seguro Popular</option>
+              <option value="IMSSB">IMSS-BIENESTAR</option>
+              <option value="PRIVADO">Privado</option>
+              <option value="OTROS">Otra institución</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Badges instituciones -->
+        <div id="badgesInstituciones" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+
+        <hr class="my-4 border-[var(--borde)]">
+
+        <!-- Top 10 etiquetas por ámbito/foco -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2" id="topTitle">Top 10 municipios por afiliación total</h3>
+          <div id="tagsTop" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <!-- Doughnut -->
+      <div class="card p-5">
+        <h2 class="text-base section-title mb-2">Con vs Sin afiliación</h2>
+        <div class="flex items-center justify-center">
+          <canvas id="chartDoughnut" width="220" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabla -->
+    <section class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-lg section-title">Detalle de datos</h2>
+          <span class="text-xs text-gray-400">Click en encabezados para ordenar</span>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnExportCSV" class="px-3 py-2 rounded-lg border border-[var(--borde)] text-sm hover:bg-gray-50">Exportar CSV</button>
+          <label class="text-xs text-gray-500 self-center hidden md:inline">Paginación local (15/pg)</label>
+        </div>
+      </div>
+      <div id="tabla" class="rounded-xl overflow-hidden border border-[var(--borde)]"></div>
+    </section>
+  </main>
+
+  <!-- ====== LÓGICA ====== -->
+  <script>
+    // Supabase
+    const SUPABASE_URL = "https://tlamatiloyan-api.morelos.gob.mx";
+    const SUPABASE_ANON_KEY = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Utilidades
+    const num = (v)=>{ if(v===null||v===undefined) return 0; const n=(typeof v==='number')?v:parseFloat(String(v).replace(/,/g,'')); return isNaN(n)?0:n; };
+    const pct = (n,d)=> (d>0? (n/d*100): 0);
+    const fmtPct = (x)=> isFinite(x)? x.toFixed(1)+'%' : '–';
+    const fmtNum = (x)=> new Intl.NumberFormat('es-MX').format(Math.round(x));
+
+    // DOM
+    const selMun = document.getElementById('selMun');
+    const selLoc = document.getElementById('selLoc');
+    const btnClear = document.getElementById('btnClear');
+    const kpiAfil = document.getElementById('kpiAfil');
+    const kpiNoAfil = document.getElementById('kpiNoAfil');
+    const resumenEl = document.getElementById('resumen');
+    const loader = document.getElementById('loader');
+    const labelsSubtitle = document.getElementById('labelsSubtitle');
+    const selAmbito = document.getElementById('selAmbito');
+    const selFocus = document.getElementById('selFocus');
+    const badgesEl = document.getElementById('badgesInstituciones');
+    const tagsTopEl = document.getElementById('tagsTop');
+    const topTitleEl = document.getElementById('topTitle');
+
+    // Doughnut
+    const chartDoughnutEl = document.getElementById('chartDoughnut');
+    let chartDoughnut;
+
+    // Campos
+    const needed = ["nom_mun","nom_loc","pder_ss","psinder","pder_imss","pder_iste","pder_istee","pafil_pdom","pder_segp","pder_imssb","pafil_ipriv","pafil_otrai"];
+
+    // Estado
+    let RAW=[], FILTERED=[];
+    let table;
+
+    // Colores
+    const COLORS = {
+      IMSS:        getComputedStyle(document.documentElement).getPropertyValue('--verde-oscuro').trim() || '#2E3B2B',
+      ISSSTE:      getComputedStyle(document.documentElement).getPropertyValue('--verde-olivo').trim()   || '#71785b',
+      ISSTEE:      '#8aa084',
+      PDOM:        getComputedStyle(document.documentElement).getPropertyValue('--cafe').trim()          || '#7C4A36',
+      INSABI:      getComputedStyle(document.documentElement).getPropertyValue('--dorado').trim()        || '#bc9b73',
+      IMSSB:       '#009688',
+      PRIVADO:     getComputedStyle(document.documentElement).getPropertyValue('--privado').trim()       || '#5b8fb9',
+      OTROS:       getComputedStyle(document.documentElement).getPropertyValue('--otros').trim()         || '#a0a0a0',
+      AFIL:        '#4caf50',
+      NOAFIL:      getComputedStyle(document.documentElement).getPropertyValue('--vino').trim()          || '#773357'
+    };
+
+    // Definición de instituciones
+    const INST = [
+      {key:'IMSS',   label:'IMSS',               color:COLORS.IMSS,   field:'pder_imss'},
+      {key:'ISSSTE', label:'ISSSTE',             color:COLORS.ISSSTE, field:'pder_iste'},
+      {key:'ISSTEE', label:'ISSSTE estatal',     color:COLORS.ISSTEE, field:'pder_istee'},
+      {key:'PDOM',   label:'PEMEX/SEDENA/SEMAR', color:COLORS.PDOM,   field:'pafil_pdom'},
+      {key:'INSABI', label:'INSABI/Seguro Popular', color:COLORS.INSABI, field:'pder_segp'},
+      {key:'IMSSB',  label:'IMSS-BIENESTAR',     color:COLORS.IMSSB,  field:'pder_imssb'},
+      {key:'PRIVADO',label:'Privado',            color:COLORS.PRIVADO,field:'pafil_ipriv'},
+      {key:'OTROS',  label:'Otra institución',   color:COLORS.OTROS,  field:'pafil_otrai'},
+    ];
+
+    // Carga
+    async function loadFromSupabase(){
+      const cols = needed.join(',');
+      const { data, error } = await sb.from('demografia_morelos').select(cols).limit(200000);
+      if(error) throw error;
+      return data;
+    }
+
+    // Sanitizar
+    function sanitizeRows(rows){
+      return rows.filter(r=> r && (r.nom_mun || r.nom_loc)).map(r=>{
+        needed.forEach(k=>{ if(!(k in r)) r[k]= null; });
+        return {
+          nom_mun: String(r.nom_mun||'').trim(),
+          nom_loc: String(r.nom_loc||'').trim(),
+          pder_ss: num(r.pder_ss),     psinder: num(r.psinder),
+          pder_imss: num(r.pder_imss), pder_iste: num(r.pder_iste), pder_istee: num(r.pder_istee),
+          pafil_pdom: num(r.pafil_pdom), pder_segp: num(r.pder_segp), pder_imssb: num(r.pder_imssb),
+          pafil_ipriv: num(r.pafil_ipriv), pafil_otrai: num(r.pafil_otrai),
+        };
+      });
+    }
+
+    // Helpers
+    function sumRows(rows){
+      return rows.reduce((a,r)=>{
+        a.pder_ss += r.pder_ss; a.psinder += r.psinder;
+        a.pder_imss += r.pder_imss; a.pder_iste += r.pder_iste; a.pder_istee += r.pder_istee;
+        a.pafil_pdom += r.pafil_pdom; a.pder_segp += r.pder_segp; a.pder_imssb += r.pder_imssb;
+        a.pafil_ipriv += r.pafil_ipriv; a.pafil_otrai += r.pafil_otrai;
+        return a;
+      }, {pder_ss:0,psinder:0,pder_imss:0,pder_iste:0,pder_istee:0,pafil_pdom:0,pder_segp:0,pder_imssb:0,pafil_ipriv:0,pafil_otrai:0});
+    }
+    const uniques=(arr,key)=> Array.from(new Set(arr.map(o=>o[key]))).sort((a,b)=> (a||'').localeCompare(b||'','es',{sensitivity:'base'}));
+    function groupBy(rows, key){
+      const map = new Map();
+      rows.forEach(r=>{
+        const k = r[key] || '(Sin dato)';
+        if(!map.has(k)) map.set(k, []);
+        map.get(k).push(r);
+      });
+      return Array.from(map.entries()).map(([k,arr])=> ({ group:k, ...sumRows(arr) }));
+    }
+    function totalAfiliadosDe(d){
+      return (d.pder_imss+d.pder_iste+d.pder_istee+d.pafil_pdom+d.pder_segp+d.pder_imssb+d.pafil_ipriv+d.pafil_otrai);
+    }
+
+    // KPIs + resumen
+    function renderKPIsandSummary(rows){
+      const s = sumRows(rows);
+      const totalPob = s.pder_ss + s.psinder;
+      const afil = pct(s.pder_ss, totalPob);
+      const noafil = pct(s.psinder, totalPob);
+
+      kpiAfil.textContent   = fmtPct(afil);
+      kpiNoAfil.textContent = fmtPct(noafil);
+
+      const mun = selMun.value || 'Todos';
+      const loc = selLoc.value || 'Todas';
+      const scope = (mun==='Todos') ? 'Morelos' : (loc==='Todas' ? `${mun}` : `${mun} · ${loc}`);
+      const topInst = topInstitutionShare(s);
+      resumenEl.textContent =
+        `En ${scope}, ${fmtPct(afil)} de la población tiene afiliación a servicios de salud y ${fmtPct(noafil)} no está afiliada. ` +
+        `La principal institución de afiliación es ${topInst.name} con ${fmtPct(topInst.share)} del total de afiliados.`;
+    }
+    function topInstitutionShare(s){
+      const parts = [
+        {name:'IMSS', v:s.pder_imss},
+        {name:'ISSSTE', v:s.pder_iste},
+        {name:'ISSSTE estatal', v:s.pder_istee},
+        {name:'PEMEX/SEDENA/SEMAR', v:s.pafil_pdom},
+        {name:'INSABI/Seguro Popular', v:s.pder_segp},
+        {name:'IMSS-BIENESTAR', v:s.pder_imssb},
+        {name:'Privado', v:s.pafil_ipriv},
+        {name:'Otra institución', v:s.pafil_otrai},
+      ];
+      const totalAfil = s.pder_ss || 0;
+      const top = parts.sort((a,b)=>b.v-a.v)[0] || {name:'—', v:0};
+      return {name:top.name, share: pct(top.v, totalAfil)};
+    }
+
+    // Badges instituciones (cuentas + %)
+    function renderInstitutionBadges(rows){
+      const s = sumRows(rows);
+      const totalAfil = s.pder_ss || 0;
+
+      const list = INST.map(inst=>{
+        const val = s[inst.field] || 0;
+        const share = pct(val, totalAfil);
+        return { ...inst, val, share };
+      }).sort((a,b)=> b.val - a.val);
+
+      badgesEl.innerHTML = '';
+      list.forEach(it=>{
+        const div = document.createElement('div');
+        div.className = 'badge';
+        div.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="swatch" style="background:${it.color}"></span>
+            <span class="name">${it.label}</span>
+          </div>
+          <div class="vals">
+            <span class="count">${fmtNum(it.val)}</span>
+            <span class="pct">(${it.share.toFixed(1)}%)</span>
+          </div>
+        `;
+        badgesEl.appendChild(div);
+      });
+    }
+
+    // Top-10 etiquetas por ámbito / foco
+    function renderTopTags(rows){
+      const amb = selAmbito.value; // mun | loc | estado
+      const focus = selFocus.value; // total | key INST
+
+      if(amb==='estado'){
+        const s = sumRows(rows);
+        const val = (focus==='total') ? totalAfiliadosDe(s) : (s[INST.find(i=>i.key===focus)?.field]||0);
+        topTitleEl.textContent = (focus==='total')
+          ? 'Total estatal de afiliados'
+          : `Total estatal en ${INST.find(i=>i.key===focus).label}`;
+        tagsTopEl.innerHTML = `<span class="tag"><span class="val">${fmtNum(val)}</span></span>`;
+        return;
+      }
+
+      const key = (amb==='mun') ? 'nom_mun' : 'nom_loc';
+      const groups = groupBy(rows, key).map(d=>{
+        const val = (focus==='total') ? totalAfiliadosDe(d) : (d[INST.find(i=>i.key===focus)?.field]||0);
+        return { name:d.group, val };
+      }).filter(x=>x.name && x.name!=='(Sin dato)');
+
+      groups.sort((a,b)=> b.val - a.val);
+      const top = groups.slice(0,10);
+
+      topTitleEl.textContent = (focus==='total')
+        ? `Top 10 ${amb==='mun'?'municipios':'localidades'} por afiliación total`
+        : `Top 10 ${amb==='mun'?'municipios':'localidades'} en ${INST.find(i=>i.key===focus).label}`;
+
+      tagsTopEl.innerHTML = '';
+      top.forEach(g=>{
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.innerHTML = `<span>${g.name}</span> <span class="val">${fmtNum(g.val)}</span>`;
+        tagsTopEl.appendChild(span);
+      });
+    }
+
+    // Doughnut
+    function renderDoughnut(rows){
+      const s = sumRows(rows);
+      const total = s.pder_ss + s.psinder;
+      const data = [s.pder_ss, s.psinder];
+
+      const centerText = {
+        id:'centerText',
+        afterDraw(chart){
+          const {ctx} = chart;
+          const afilPct = total>0 ? (data[0]/total*100) : 0;
+          const pt = chart.getDatasetMeta(0).data[0];
+          if(!pt) return;
+          ctx.save();
+          ctx.font = '700 20px Montserrat';
+          ctx.fillStyle = 'rgba(0,0,0,.85)';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${afilPct.toFixed(1)}%`, pt.x, pt.y+5);
+          ctx.restore();
+        }
+      };
+
+      if(chartDoughnut) chartDoughnut.destroy();
+      chartDoughnut = new Chart(chartDoughnutEl,{
+        type:'doughnut',
+        data:{ labels:['Con afiliación','Sin afiliación'], datasets:[{ data, backgroundColor:[COLORS.AFIL, COLORS.NOAFIL], borderWidth:0 }] },
+        options:{ cutout:'65%', responsive:false, plugins:{ legend:{ position:'bottom' }, tooltip:{ callbacks:{ label:c=>{
+          const p = total>0 ? (c.parsed/total*100) : 0;
+          return `${c.label}: ${fmtNum(c.parsed)} (${p.toFixed(1)}%)`;
+        }}} } },
+        plugins:[centerText]
+      });
+    }
+
+    // Tabla
+    function renderTable(rows){
+      if(!table){
+        table = new Tabulator('#tabla', {
+          data: rows, layout:'fitDataStretch', pagination:"local", paginationSize:15, reactiveData:true,
+          columns:[
+            {title:'Municipio', field:'nom_mun', headerFilter:true, headerSort:true, bottomCalc:"count", bottomCalcFormatter:(c)=> `Filas: ${c}`},
+            {title:'Localidad', field:'nom_loc', headerFilter:true, headerSort:true},
+            {title:'Con afiliación', field:'pder_ss', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'Sin afiliación', field:'psinder', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'IMSS', field:'pder_imss', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'ISSSTE', field:'pder_iste', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'ISSSTE estatal', field:'pder_istee', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'PEMEX/SEDENA/SEMAR', field:'pafil_pdom', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'INSABI/Seguro Popular', field:'pder_segp', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'IMSS-BIENESTAR', field:'pder_imssb', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'Privado', field:'pafil_ipriv', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+            {title:'Otra institución', field:'pafil_otrai', bottomCalc:"sum", formatter:c=>fmtNum(c.getValue()), bottomCalcFormatter:(c)=>fmtNum(c)},
+          ],
+        });
+        document.getElementById('btnExportCSV').addEventListener('click', ()=> table.download("csv", "salud_afiliacion.csv"));
+      }else{
+        table.setData(rows);
+      }
+    }
+
+    // Aplicar filtros
+    function applyFilters(){
+      const mun = selMun.value || 'Todos';
+      const loc = selLoc.value || 'Todas';
+      FILTERED = RAW.filter(r => (mun==='Todos' || r.nom_mun===mun) && (loc==='Todas' || r.nom_loc===loc));
+
+      // Subtítulo etiquetas
+      labelsSubtitle.textContent =
+        (mun==='Todos') ? 'Ámbito estatal' :
+        (loc==='Todas') ? `Ámbito: ${mun}` : `Ámbito: ${mun} · ${loc}`;
+
+      renderKPIsandSummary(FILTERED);
+      renderInstitutionBadges(FILTERED);
+      renderTopTags(FILTERED);
+      renderDoughnut(FILTERED);
+      renderTable(FILTERED);
+    }
+
+    // Populate filtros
+    function populateFilters(data){
+      selMun.innerHTML='';
+      const oAllM = document.createElement('option'); oAllM.value='Todos'; oAllM.textContent='Todos';
+      selMun.appendChild(oAllM);
+      uniques(data,'nom_mun').forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; selMun.appendChild(o); });
+      cascadeLocalidades();
+    }
+    function cascadeLocalidades(){
+      const mun = selMun.value || 'Todos';
+      selLoc.innerHTML='';
+      const oAllL = document.createElement('option'); oAllL.value='Todas'; oAllL.textContent='Todas'; selLoc.appendChild(oAllL);
+      const base = (mun==='Todos')? RAW : RAW.filter(r=> r.nom_mun===mun);
+      uniques(base,'nom_loc').forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; selLoc.appendChild(o); });
+    }
+
+    // Init
+    (async function init(){
+      try{
+        const { data, error } = await sb.from('demografia_morelos').select(needed.join(',')).limit(200000);
+        if(error) throw error;
+        RAW = sanitizeRows(data);
+        populateFilters(RAW);
+        applyFilters();
+
+        // eventos
+        selMun.addEventListener('change', ()=>{ cascadeLocalidades(); applyFilters(); });
+        selLoc.addEventListener('change', applyFilters);
+        btnClear.addEventListener('click', ()=>{
+          selMun.value='Todos'; cascadeLocalidades(); selLoc.value='Todas';
+          selAmbito.value='estado'; selFocus.value='total';
+          applyFilters();
+        });
+        selAmbito.addEventListener('change', ()=> renderTopTags(FILTERED));
+        selFocus.addEventListener('change', ()=> renderTopTags(FILTERED));
+      }catch(err){
+        console.error('Error al cargar datos Supabase:', err);
+        alert('No se pudo cargar desde Supabase: ' + (err?.message || err));
+      }finally{
+        loader.style.display='none';
+      }
+    })();
+  </script>
+</body>
+</html>

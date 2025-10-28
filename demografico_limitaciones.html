@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Limitaciones y Discapacidades – Morelos</title>
+
+  <!-- Fuente -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --verde-oscuro:#2E3B2B;
+      --verde-olivo:#71785b;
+      --dorado:#bc9b73;
+      --vino:#773357;
+      --cafe:#7C4A36;
+      --gris-suave:#CBCABE;
+      --fondo:#F3F4F6;
+      --borde:#E6E6E6;
+    }
+    body{font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;background:var(--fondo);color:#1f2937}
+
+    /* ===== Header institucional (idéntico al tablero económico) ===== */
+    .header-grad{background:linear-gradient(100deg,var(--verde-oscuro),var(--verde-olivo));}
+    .logo-img{ height:60px; width:auto; object-fit:contain; filter:drop-shadow(0 2px 2px rgba(0,0,0,.15)); }
+    .tab{padding:.5rem 1rem;border-radius:9999px}
+    .tab.active{background:#fff;color:var(--verde-oscuro);font-weight:700}
+    .chip{border:1px solid var(--gris-suave);padding:.25rem .6rem;border-radius:9999px;font-size:.75rem}
+    .sticky-header{position:sticky;top:0;z-index:50}
+
+    /* ===== Estilos del tablero (originales) ===== */
+    .card{background:white;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 22px rgba(0,0,0,.06)}
+    .kpi{background:white;border-radius:18px;box-shadow:0 12px 26px rgba(0,0,0,.08);border:1px solid var(--gris-suave)}
+    .kpi .value{color:var(--dorado)}
+    .select{appearance:none;background:white;border:1px solid #d1d5db;border-radius:12px;padding:.65rem .9rem;font-weight:600}
+    .btn{border-radius:12px;padding:.65rem 1rem;font-weight:700}
+    .btn-ghost{border:1px solid #d1d5db;background:white}
+    .btn-ghost:hover{background:#f9fafb}
+    .sticky-filters{position:sticky;top:0;z-index:30;backdrop-filter:saturate(140%) blur(6px); background:rgba(255,255,255,.88); border-bottom:1px solid #e5e7eb}
+    .chart-wrap{height:320px; display:flex; align-items:center;}
+    @media(min-width:1280px){ .chart-wrap{height:340px} }
+    #map{height:320px;border-radius:14px;border:1px solid #e5e7eb}
+    @media(min-width:1024px){ #map{height:340px} }
+    .segmented{display:inline-flex; border:1px solid #d1d5db; border-radius:12px; overflow:hidden; background:#fff}
+    .segmented input{display:none}
+    .segmented label{padding:.45rem .8rem; cursor:pointer; font-weight:700; font-size:.9rem; color:#374151}
+    .segmented input:checked + label{background:#f3efe8; color:#1f2937}
+    .toast{position:fixed;bottom:18px;right:18px;background:#1f2937;color:#fff;padding:.75rem 1rem;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.25);display:none}
+    .top-wrap{display:grid;grid-template-columns:1fr;gap:1rem}
+    @media(min-width:1024px){ .top-wrap{grid-template-columns:2fr 1fr} }
+    .table{width:100%; border-collapse:collapse; font-size:.9rem}
+    .table th,.table td{padding:.5rem .6rem; border-bottom:1px solid #eee}
+    .table th{color:#6b7280; font-weight:700; text-align:left}
+  </style>
+</head>
+<body>
+  <!-- ===== Header institucional + navegación ===== -->
+  <header class="sticky-header header-grad text-white">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex items-center justify-between py-3">
+        <div class="flex items-center gap-4">
+          <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+               alt="ATD · Gobierno del Estado de Morelos" class="logo-img" />
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight">Limitaciones y Discapacidades</h1>
+            <p class="text-xs/relaxed text-white/80">Fuente: INEGI <span class="font-semibold"></span></p>
+          </div>
+        </div>
+        <div class="hidden md:flex items-center gap-2">
+          <span class="chip bg-white/10 text-white">UX·UI institucional</span>
+          <span class="chip bg-white/10 text-white">v1.0</span>
+        </div>
+      </div>
+      <!-- Navegación temática -->
+      <nav class="pb-3">
+        <div class="flex flex-wrap gap-2">
+          <a href="demografico.html" class="tab text-white/90">Inicio</a>
+          <a href="demografico_poblacion.html" class="tab text-white/90">Población</a>
+          <a href="demografico_educacion.html" class="tab text-white/90">Educación</a>
+          <a href="demografico_economia.html" class="tab text-white/90">Economía</a>
+          <a href="demografico_salud.html" class="tab text-white/90">Salud</a>
+          <a href="demografico_vivienda.html" class="tab text-white/90">Vivienda y Servicios</a>
+          <a href="demografico_diversidad.html" class="tab text-white/90">Diversidad Cultural</a>
+          <span class="tab active">Limitaciones</span>
+        </div>
+      </nav>
+    </div>
+  </header>
+  <!-- ===== Fin header institucional ===== -->
+
+  <!-- Barra de filtros (sticky) -->
+  <div class="sticky-filters">
+    <section class="max-w-7xl mx-auto px-4 py-3">
+      <div class="card px-4 py-3">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div class="md:col-span-4">
+            <label class="block text-sm text-gray-700 font-medium mb-1">Municipio</label>
+            <select id="selMun" class="select w-full">
+              <option value="__ALL__">Todos</option>
+            </select>
+          </div>
+          <div class="md:col-span-4">
+            <label class="block text-sm text-gray-700 font-medium mb-1">Localidad</label>
+            <select id="selLoc" class="select w-full" disabled>
+              <option value="__ALL__">Todas</option>
+            </select>
+          </div>
+          <div class="md:col-span-4 flex flex-wrap gap-3 md:justify-end">
+            <button id="btnClear" class="btn btn-ghost w-full md:w-auto">Limpiar</button>
+          </div>
+        </div>
+
+        <!-- Controles de visualización -->
+        <div class="flex flex-wrap items-center gap-3 mt-3">
+          <div class="text-sm text-gray-600 font-medium">Gráficos:</div>
+          <div class="segmented" role="radiogroup" aria-label="Modo de visualización">
+            <input type="radio" id="mode_abs" name="mode" value="abs" checked>
+            <label for="mode_abs" title="Cantidades absolutas">Personas</label>
+            <input type="radio" id="mode_pct" name="mode" value="pct">
+            <label for="mode_pct" title="Porcentajes del total">%</label>
+          </div>
+
+          <div class="text-sm text-gray-600 font-medium ml-2">Población:</div>
+          <div class="segmented" role="radiogroup" aria-label="Segmento por sexo">
+            <input type="radio" id="sex_total" name="sex" value="total" checked>
+            <label for="sex_total" title="Total">Total</label>
+            <input type="radio" id="sex_f" name="sex" value="f">
+            <label for="sex_f" title="Femenino">F</label>
+            <input type="radio" id="sex_m" name="sex" value="m">
+            <label for="sex_m" title="Masculino">M</label>
+          </div>
+
+          <div id="hintScale" class="text-xs text-gray-500">Escala: personas · Segmento: total</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 mt-4 mb-12">
+    <!-- KPIs -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <article class="kpi p-5">
+        <div class="text-sm text-gray-500">Del total del segmento</div>
+        <div class="mt-1 text-4xl lg:text-5xl font-extrabold value"><span id="kpiDisc">—</span><span class="text-2xl align-super"> %</span></div>
+        <div class="text-gray-600">tienen <b>discapacidad</b></div>
+      </article>
+      <article class="kpi p-5">
+        <div class="text-sm text-gray-500">Del total del segmento</div>
+        <div class="mt-1 text-4xl lg:text-5xl font-extrabold value"><span id="kpiLimi">—</span><span class="text-2xl align-super"> %</span></div>
+        <div class="text-gray-600">tienen <b>limitaciones</b></div>
+      </article>
+    </section>
+
+    <!-- Gráficos lado a lado -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+      <article class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-[var(--verde-oscuro)]">Discapacidades</h3>
+          <span class="text-xs text-gray-500"><span id="subtitleDisc">cantidad de personas</span></span>
+        </div>
+        <div class="chart-wrap mt-2"><canvas id="chartDisc"></canvas></div>
+      </article>
+
+      <article class="card p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-[var(--verde-oscuro)]">Limitaciones funcionales</h3>
+          <span class="text-xs text-gray-500"><span id="subtitleLimi">cantidad de personas</span></span>
+        </div>
+        <div class="chart-wrap mt-2"><canvas id="chartLimi"></canvas></div>
+      </article>
+    </section>
+
+    <!-- Top 5 Municipios -->
+    <section class="card p-4 mt-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-[var(--verde-oscuro)]">Top 5 municipios con mayor discapacidad</h3>
+        <span class="text-xs text-gray-500" id="topCriteriaHint">criterio: personas (pcon_disc)</span>
+      </div>
+      <div class="top-wrap mt-3">
+        <div>
+          <canvas id="chartTop" height="240"></canvas>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Municipio</th>
+                <th>Personas</th>
+                <th>% del segmento</th>
+              </tr>
+            </thead>
+            <tbody id="tableTopBody">
+              <!-- rows dinámicas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">El Top 5 siempre compara a nivel estatal; tus filtros no alteran qué municipios compiten, solo cambian el modo de cálculo (Personas/% y Total/F/M).</p>
+    </section>
+
+    <!-- Mapa compacto -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+      <aside class="card p-4 lg:col-span-3">
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-[var(--verde-oscuro)]">Mapa (ubicación seleccionada)</h3>
+          <button id="btnResetMap" class="btn btn-ghost text-sm">Reiniciar</button>
+        </div>
+        <div id="map" class="mt-2"></div>
+        <p class="text-xs text-gray-500 mt-2">El mapa coloca un pin al seleccionar una localidad; para municipios, muestra el centro promedio.</p>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // ================= CONFIGURACIÓN =================
+    const SUPABASE_URL = "https://tlamatiloyan-api.morelos.gob.mx";
+    const SUPABASE_KEY = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+    const TABLE = "demografia_morelos";
+
+    // Campos base
+    const FIELDS_DISC_BASE = ["pcon_disc","pcdisc_aud","pcdisc_leng","pcdisc_mot","pcdisc_mot2","pcdisc_men","pcdisc_vis"];
+    const FIELDS_LIMI_BASE = ["pcon_limi","pclim_oaud","pclim_haco","pclim_csb","pclim_mot2","pclim_re_co","pclim_vis"];
+    const DISC_ORDER = ["pcdisc_aud","pcdisc_leng","pcdisc_mot","pcdisc_mot2","pcdisc_men","pcdisc_vis"];
+    const LIMI_ORDER = ["pclim_oaud","pclim_haco","pclim_csb","pclim_mot2","pclim_re_co","pclim_vis"];
+
+    // Totales población candidatos (por sexo)
+    const TOTAL_POP_CANDIDATES = ["pobtot","p_total","p_total_hab","poblacion_total","total","pob_tot"];
+    const TOTAL_POP_F_CAND = TOTAL_POP_CANDIDATES.map(x=>`${x}_f`);
+    const TOTAL_POP_M_CAND = TOTAL_POP_CANDIDATES.map(x=>`${x}_m`);
+
+    // Coordenadas
+    const LAT_FIELD = "latitud_decimal";
+    const LON_FIELD = "longitud_decimal";
+
+    // Estilo
+    const COLORS = ["#2E3B2B","#773357","#71785b","#7C4A36","#bc9b73","#8f8f8f"];
+    const COLORS_TOP = "#2E3B2B";
+
+    // Supabase
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // UI
+    const selMun = document.getElementById('selMun');
+    const selLoc = document.getElementById('selLoc');
+    const btnClear = document.getElementById('btnClear');
+    const btnResetMap = document.getElementById('btnResetMap');
+    const subtitleDisc = document.getElementById('subtitleDisc');
+    const subtitleLimi = document.getElementById('subtitleLimi');
+    const hintScale = document.getElementById('hintScale');
+    const toast = document.getElementById('toast');
+    const topCriteriaHint = document.getElementById('topCriteriaHint');
+    const tableTopBody = document.getElementById('tableTopBody');
+
+    // Estado
+    let map, chartDisc, chartLimi, chartTop, activeMarker=null, activeCircle=null;
+    let currentMode = "abs"; // "abs" | "pct"
+    let currentSex = "total"; // "total" | "f" | "m"
+    let lastRows = [];
+    let allRows = []; // cache estatal para Top 5
+
+    // Utils
+    const showToast = (msg)=>{ toast.textContent = msg; toast.style.display='block'; setTimeout(()=> toast.style.display='none', 2200); };
+    const fmt = n => (n==null || isNaN(n)) ? "—" : Number(n).toLocaleString('es-MX');
+    const pct = v => (v==null || isNaN(v)) ? "—" : (Math.round(v*100)/100).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const sumBy = (rows, f) => rows.reduce((a,r)=> a + (Number(r[f])||0), 0);
+    const detectFieldName = (row, candidates)=> candidates.find(c=> Object.keys(row).find(k=>k.toLowerCase()===c.toLowerCase())) || null;
+    const fieldExists = (rows, field) => rows.length && Object.prototype.hasOwnProperty.call(rows[0], field);
+
+    function resolveField(base, sex, rows){
+      if(sex==='f' && fieldExists(rows, `${base}_f`)) return `${base}_f`;
+      if(sex==='m' && fieldExists(rows, `${base}_m`)) return `${base}_m`;
+      return base;
+    }
+    function resolvePopDenominator(rows, sex){
+      if(!rows.length) return null;
+      if(sex==='f'){ const f = detectFieldName(rows[0], TOTAL_POP_F_CAND); if(f) return f; }
+      if(sex==='m'){ const m = detectFieldName(rows[0], TOTAL_POP_M_CAND); if(m) return m; }
+      return detectFieldName(rows[0], TOTAL_POP_CANDIDATES);
+    }
+
+    // Data labels
+    const DataLabelPlugin = {
+      id: 'dataLabelPlugin',
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        ctx.save(); ctx.font = '600 11px Montserrat, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle='#374151';
+        const metas = chart.getDatasetMeta(0).data;
+        for(let i=0;i<metas.length;i++){
+          const meta = metas[i]; if(!meta) continue;
+          const raw = chart.data.datasets[0].data[i];
+          if(raw==null || isNaN(raw)) continue;
+          const label = (chart === chartTop && currentMode==='pct') ? `${raw.toFixed(2)}%` :
+                        (chart === chartTop ? fmt(raw) : (currentMode==='pct' ? `${raw.toFixed(2)}%` : fmt(raw)));
+          const x = meta.x + 6; const y = meta.y;
+          ctx.fillText(label, x, y);
+        }
+        ctx.restore();
+      }
+    };
+
+    function centerFromRows(rows){
+      const pts=rows.map(r=>({lat:Number(r[LAT_FIELD]), lon:Number(r[LON_FIELD])})).filter(p=>!isNaN(p.lat)&&!isNaN(p.lon));
+      if(!pts.length) return null;
+      const lat = pts.reduce((a,c)=>a+c.lat,0)/pts.length;
+      const lon = pts.reduce((a,c)=>a+c.lon,0)/pts.length;
+      return [lat,lon];
+    }
+
+    function resetMarker(){ if(activeMarker){map.removeLayer(activeMarker);activeMarker=null;} if(activeCircle){map.removeLayer(activeCircle);activeCircle=null;} }
+    function placeMarker(lat,lon,popupHtml){
+      resetMarker();
+      const icon = L.icon({
+        iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34],shadowSize:[41,41]
+      });
+      activeMarker = L.marker([lat,lon],{icon}).addTo(map);
+      activeCircle = L.circle([lat,lon],{ radius:250, weight:1, fillOpacity:0.15 }).addTo(map);
+      if(popupHtml) activeMarker.bindPopup(popupHtml).openPopup();
+    }
+
+    // Data
+    async function fetchDistinct(field, where = {}){
+      let q = supabase.from(TABLE).select(field).order(field, {ascending:true});
+      if(where.nom_mun) q = q.eq('nom_mun', where.nom_mun);
+      const {data,error} = await q;
+      if(error){ console.error(error); return []; }
+      return [...new Set((data||[]).map(r=>r[field]).filter(Boolean))];
+    }
+    async function fetchRows(mun, loc){
+      let q = supabase.from(TABLE).select('*');
+      if(mun && mun!=="__ALL__") q = q.eq('nom_mun', mun);
+      if(loc && loc!=="__ALL__") q = q.eq('nom_loc', loc);
+      const {data,error} = await q;
+      if(error){ console.error(error); return []; }
+      return data||[];
+    }
+
+    // Charts
+    function newBarChart(ctx, labels){
+      return new Chart(ctx,{
+        type:'bar',
+        plugins:[DataLabelPlugin],
+        data:{ labels, datasets:[{ data:labels.map(()=>0), backgroundColor:COLORS, borderColor:COLORS, borderWidth:1 }]},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+            label:(c)=> currentMode==='pct' ? `${c.raw.toFixed(2)} %` : `${fmt(c.raw)} personas`
+          }}},
+          scales:{
+            x:{ ticks:{ color:'#374151', maxRotation:0, autoSkip:false }},
+            y:{ beginAtZero:true, ticks:{ color:'#374151', callback:(v)=> currentMode==='pct' ? `${v}%` : fmt(v) } }
+          }
+        }
+      });
+    }
+    function newHBarChart(ctx){
+      return new Chart(ctx,{
+        type:'bar',
+        plugins:[DataLabelPlugin],
+        data:{ labels:[], datasets:[{ data:[], backgroundColor:COLORS_TOP }]},
+        options:{
+          indexAxis:'y',
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+            label:(c)=> currentMode==='pct' ? `${c.raw.toFixed(2)} %` : `${fmt(c.raw)} personas`
+          }}},
+          scales:{
+            x:{ beginAtZero:true, ticks:{ color:'#374151', callback:(v)=> currentMode==='pct' ? `${v}%` : fmt(v) } },
+            y:{ ticks:{ color:'#374151' } }
+          }
+        }
+      });
+    }
+    function updateChart(chart, values){
+      chart.data.datasets[0].data = values;
+      chart.options.scales.y.ticks.callback = (v)=> currentMode==='pct' ? `${v}%` : fmt(v);
+      chart.options.scales.x.ticks.callback = (v)=> currentMode==='pct' ? `${v}%` : fmt(v);
+      chart.update();
+    }
+
+    // --- Series (tableros principales) ---
+    function computeSeries(rows){
+      const denomField = resolvePopDenominator(rows, currentSex);
+      const totalPop = denomField ? sumBy(rows, denomField) : null;
+
+      const totals = {};
+      [...FIELDS_DISC_BASE, ...FIELDS_LIMI_BASE].forEach(base=>{
+        const f = resolveField(base, currentSex, rows);
+        totals[base] = sumBy(rows, f);
+      });
+
+      const discAbs = ["pcdisc_aud","pcdisc_leng","pcdisc_mot","pcdisc_mot2","pcdisc_men","pcdisc_vis"].map(b=> totals[b] || 0);
+      const limiAbs = ["pclim_oaud","pclim_haco","pclim_csb","pclim_mot2","pclim_re_co","pclim_vis"].map(b=> totals[b] || 0);
+      const discPct = (totalPop && totalPop>0) ? discAbs.map((v)=> (v/totalPop*100)||0) : discAbs.map(()=>0);
+      const limiPct = (totalPop && totalPop>0) ? limiAbs.map((v)=> (v/totalPop*100)||0) : limiAbs.map(()=>0);
+
+      const kDisc = (totalPop && totalPop>0) ? (totals["pcon_disc"]/totalPop*100) : null;
+      const kLimi = (totalPop && totalPop>0) ? (totals["pcon_limi"]/totalPop*100) : null;
+
+      return { totalPop, discAbs, limiAbs, discPct, limiPct, kDisc, kLimi };
+    }
+
+    // --- Top 5 Municipios (siempre a nivel estatal) ---
+    function computeTop5Municipios(rowsAll){
+      const byMun = {};
+      for(const r of rowsAll){
+        const m = r.nom_mun;
+        if(!m) continue;
+        if(!byMun[m]) byMun[m] = [];
+        byMun[m].push(r);
+      }
+      const items = [];
+      for(const [mun, group] of Object.entries(byMun)){
+        const numField = resolveField('pcon_disc', currentSex, group);
+        const numerador = sumBy(group, numField);
+        const denomField = resolvePopDenominator(group, currentSex);
+        const denom = denomField ? sumBy(group, denomField) : null;
+        const valor = (currentMode==='pct')
+          ? (denom && denom>0 ? numerador/denom*100 : 0)
+          : numerador;
+        const porcentaje = (denom && denom>0) ? numerador/denom*100 : null;
+        items.push({ mun, valor, personas: numerador, porcentaje });
+      }
+      items.sort((a,b)=> b.valor - a.valor);
+      return items.slice(0,5);
+    }
+
+    function renderTop5(){
+      if(!allRows.length){ return; }
+      const top = computeTop5Municipios(allRows);
+      const labels = top.map(d=>d.mun);
+      const data = top.map(d=> currentMode==='pct' ? d.valor : d.valor);
+      chartTop.data.labels = labels;
+      chartTop.data.datasets[0].data = data;
+      chartTop.options.scales.x.ticks.callback = (v)=> currentMode==='pct' ? `${v}%` : fmt(v);
+      chartTop.update();
+
+      tableTopBody.innerHTML = '';
+      top.forEach((d,i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${d.mun}</td>
+          <td>${fmt(d.personas)}</td>
+          <td>${d.porcentaje!=null ? d.porcentaje.toFixed(2)+'%' : '—'}</td>
+        `;
+        tableTopBody.appendChild(tr);
+      });
+      topCriteriaHint.textContent = `criterio: ${currentMode==='pct' ? '% (pcon_disc/total segmento)' : 'personas (pcon_disc)'}`;
+    }
+
+    // Render general
+    function render(rows){
+      lastRows = rows;
+      const kpiDisc = document.getElementById('kpiDisc');
+      const kpiLimi = document.getElementById('kpiLimi');
+
+      if(!rows.length){
+        kpiDisc.textContent="—"; kpiLimi.textContent="—";
+        updateChart(chartDisc,[0,0,0,0,0,0]); updateChart(chartLimi,[0,0,0,0,0,0]);
+        renderTop5();
+        resetMarker(); map.setView([18.9,-99.0],8); return;
+      }
+
+      const { totalPop, discAbs, limiAbs, discPct, limiPct, kDisc, kLimi } = computeSeries(rows);
+
+      if(currentMode==='pct'){
+        updateChart(chartDisc, discPct); updateChart(chartLimi, limiPct);
+        document.getElementById('subtitleDisc').textContent='porcentaje del segmento';
+        document.getElementById('subtitleLimi').textContent='porcentaje del segmento';
+        document.getElementById('hintScale').textContent = `Escala: porcentaje (%) · Segmento: ${currentSex==='f'?'femenino':currentSex==='m'?'masculino':'total'}`;
+      } else {
+        updateChart(chartDisc, discAbs); updateChart(chartLimi, limiAbs);
+        document.getElementById('subtitleDisc').textContent='cantidad de personas';
+        document.getElementById('subtitleLimi').textContent='cantidad de personas';
+        document.getElementById('hintScale').textContent = `Escala: personas · Segmento: ${currentSex==='f'?'femenino':currentSex==='m'?'masculino':'total'}`;
+      }
+
+      kpiDisc.textContent = (kDisc==null?'—':(Math.round(kDisc*100)/100).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
+      kpiLimi.textContent = (kLimi==null?'—':(Math.round(kLimi*100)/100).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
+
+      renderTop5();
+
+      // Mapa
+      resetMarker();
+      const LAT_FIELD = "latitud_decimal";
+      const LON_FIELD = "longitud_decimal";
+      const locVal = selLoc.value;
+      if (locVal && locVal !== "__ALL__") {
+        const filaLoc = rows.find(r => String(r.nom_loc) === String(locVal));
+        const lat = filaLoc ? Number(filaLoc[LAT_FIELD]) : NaN;
+        const lon = filaLoc ? Number(filaLoc[LON_FIELD]) : NaN;
+        if(!isNaN(lat) && !isNaN(lon)){
+          placeMarker(lat, lon, `<b>${filaLoc.nom_mun}</b> · ${filaLoc.nom_loc}`);
+          map.setView([lat, lon], 13);
+        } else {
+          const c = centerFromRows(rows); map.setView(c || [18.9,-99.0], c ? 10 : 8);
+        }
+      } else {
+        const c = centerFromRows(rows);
+        if(c){ placeMarker(c[0], c[1], selMun.value!=="__ALL__" ? `<b>${selMun.value}</b>` : "Morelos"); map.setView(c, selMun.value!=="__ALL__" ? 10 : 8); }
+        else { map.setView([18.9,-99.0], 8); }
+      }
+    }
+
+    // Eventos de filtros
+    selMun.addEventListener('change', async ()=>{
+      selLoc.innerHTML = `<option value="__ALL__">Todas</option>`;
+      selLoc.disabled = true;
+      const m = selMun.value;
+      const locs = await fetchDistinct('nom_loc', m==="__ALL__" ? {} : {nom_mun:m});
+      locs.forEach(l=>{ const o=document.createElement('option'); o.value=l; o.textContent=l; selLoc.appendChild(o); });
+      selLoc.disabled = false;
+      render(await fetchRows(m, "__ALL__"));
+    });
+    selLoc.addEventListener('change', async ()=> render(await fetchRows(selMun.value, selLoc.value)));
+    document.getElementById('btnClear').addEventListener('click', async ()=>{
+      selMun.value="__ALL__";
+      selLoc.innerHTML = `<option value="__ALL__">Todas</option>`;
+      selLoc.disabled = true;
+      render(await fetchRows("__ALL__","__ALL__"));
+    });
+    document.getElementById('btnResetMap').addEventListener('click', ()=>{ resetMarker(); map.setView([18.9,-99.0],8); });
+
+    document.getElementById('mode_abs').addEventListener('change', ()=>{ currentMode='abs'; render(lastRows); });
+    document.getElementById('mode_pct').addEventListener('change', ()=>{ currentMode='pct'; render(lastRows); });
+    document.getElementById('sex_total').addEventListener('change', ()=>{ currentSex='total'; render(lastRows); });
+    document.getElementById('sex_f').addEventListener('change', ()=>{ currentSex='f'; render(lastRows); });
+    document.getElementById('sex_m').addEventListener('change', ()=>{ currentSex='m'; render(lastRows); });
+
+    async function init(){
+      // Mapa
+      map = L.map('map').setView([18.9,-99.0],8);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18, attribution:'© OpenStreetMap'}).addTo(map);
+
+      // Catálogo municipios
+      const muns = await fetchDistinct('nom_mun');
+      muns.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; selMun.appendChild(o); });
+
+      // Charts
+      const ctxDisc = document.getElementById('chartDisc').getContext('2d');
+      const ctxLimi = document.getElementById('chartLimi').getContext('2d');
+      chartDisc = newBarChart(ctxDisc, ["Auditiva","Habla/Com.","Motriz","Vestirse/Bañ.","Cognitiva","Visual"]);
+      chartLimi = newBarChart(ctxLimi, ["Auditiva","Comunicarse","Moverse","Vestirse/Bañ.","Recordar","Visual"]);
+
+      const ctxTop = document.getElementById('chartTop').getContext('2d');
+      chartTop = newHBarChart(ctxTop);
+
+      // Datos
+      allRows = await fetchRows("__ALL__","__ALL__");
+      render(await fetchRows("__ALL__","__ALL__"));
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Acceso a la Educación por Edad — Morelos</title>
+
+  <!-- Tailwind (necesario para el header institucional) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tipografía -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js + Datalabels -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+  <!-- Tabulator -->
+  <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.2.3/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.2.3/dist/js/tabulator.min.js"></script>
+
+  <!-- Supabase -->
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"></script>
+
+  <style>
+    :root{
+      --verde-oscuro:#2E3B2B;
+      --verde-olivo:#71785b;
+      --dorado:#bc9b73;
+      --vino:#773357;
+      --gris-suave:#CBCABE;
+      --fondo:#F3F4F6;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Montserrat,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background:var(--fondo);
+      color:#111827;
+      line-height:1.35;
+    }
+
+    /* ====== Estilos propios del tablero (se mantienen) ====== */
+    main{max-width:1200px;margin:20px auto;padding:0 16px}
+    .grid{display:grid;gap:16px;grid-template-columns:1fr}
+    .grid-2{grid-template-columns:1fr 1fr}
+    .grid-3{grid-template-columns:repeat(3,1fr)}
+    .grid-5{grid-template-columns:repeat(5,1fr)}
+    @media (max-width:1100px){.grid-5{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:720px){.grid-5{grid-template-columns:repeat(2,1fr)}}
+    .card{background:white;border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.08);padding:14px 16px;border:1px solid #eef2f7}
+    .card--gris{background:#fafafa}
+    .card h3{margin:0 0 10px 0;font-size:1.1rem;color:#111827}
+
+    .filters{display:grid;gap:12px;grid-template-columns:1fr 1fr 1fr 1fr}
+    @media (max-width:900px){.filters{grid-template-columns:1fr 1fr}}
+    @media (max-width:520px){.filters{grid-template-columns:1fr}}
+    label{font-weight:600;font-size:.9rem;margin-bottom:6px;display:block}
+    select,input[type="text"]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;font-family:inherit}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+
+    .btn{appearance:none;border:0;cursor:pointer;padding:10px 14px;border-radius:var(--radius);background:#eceff1;color:#111827;font-weight:600;transition:.2s transform ease,.2s box-shadow ease,.2s background ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.12);background:#e6e9eb}
+    .btn-outline{background:white;border:1px solid #e5e7eb}
+    .btn-success{background:#e7f3ea;color:#1f2937;border:1px solid #d0e8d6}
+
+    .kpi{background:#fff;border:1px solid #eef2f7;border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+    .kpi .label{font-size:.85rem;color:#4b5563;font-weight:600}
+    .kpi .value{font-size:1.3rem;font-weight:700;color:#111827}
+    .kpi .sub{font-size:.8rem;color:#6b7280}
+
+    .chart-wrap{position:relative}
+    .chart-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .table-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+    .tabulator{border-radius:12px;border:1px solid #e5e7eb}
+    .tabulator .tabulator-row:hover{background:#f6f7fb}
+    .note{font-size:.85rem;color:#6b7280;margin-top:8px}
+
+    /* ====== Mínimos estilos del header institucional que usa “tab” ====== */
+    .header-grad{background:linear-gradient(100deg,var(--verde-oscuro),var(--verde-olivo));}
+    .logo-img{height:56px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 2px rgba(0,0,0,.15))}
+    .tab{padding:.5rem 1rem;border-radius:9999px}
+    .tab.active{background:#fff;color:var(--verde-oscuro);font-weight:700}
+    .chip{border:1px solid var(--gris-suave);padding:.25rem .6rem;border-radius:9999px;font-size:.75rem}
+  </style>
+</head>
+<body>
+  <!-- ====== HEADER + NAV INSTITUCIONAL (copiado y adaptado) ====== -->
+  <header class="sticky top-0 z-40 header-grad text-white">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex items-center justify-between py-3">
+        <div class="flex items-center gap-3">
+          <img class="logo-img" src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png" alt="Gobierno de Morelos"/>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight">Acceso a la Educación por Edad</h1>
+            <p class="text-xs/relaxed text-white/80">Fuente: INEGI 2020</p>
+          </div>
+        </div>
+        <div class="hidden md:flex items-center gap-2">
+          <span class="chip bg-white/10 text-white">UX·UI institucional</span>
+          <span class="chip bg-white/10 text-white">v1.0</span>
+        </div>
+      </div>
+      <!-- Navegación temática (pestaña activa: Educación) -->
+      <nav class="pb-3">
+        <div class="flex flex-wrap gap-2">
+          <a href="demografico.html" class="tab text-white/90">Inicio</a>
+          <a href="demografico_poblacion.html" class="tab text-white/90">Población</a>
+          <span class="tab active">Educación</span>
+          <a href="demografico_economia.html" class="tab text-white/90">Economía</a>
+          <a href="demografico_salud.html" class="tab text-white/90">Salud</a>
+          <a href="demografico_vivienda.html" class="tab text-white/90">Vivienda y Servicios</a>
+          <a href="demografico_diversidad.html" class="tab text-white/90">Diversidad Cultural</a>
+          <a href="demografico_limitaciones.html" class="tab text-white/90">Limitaciones</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ====== CONTENIDO ORIGINAL DEL TABLERO (INTACTO) ====== -->
+  <main>
+    <!-- Filtros y acciones -->
+    <section class="card" id="filtros-acciones">
+      <h3>Filtros y acciones</h3>
+      <div class="filters">
+        <div>
+          <label for="selMunicipio">Municipio</label>
+          <select id="selMunicipio"></select>
+        </div>
+        <div>
+          <label for="selLocalidad">Localidad</label>
+          <select id="selLocalidad"></select>
+        </div>
+        <div>
+          <label for="txtBuscarTabla">Buscar en tabla</label>
+          <input type="text" id="txtBuscarTabla" placeholder="Buscar… (nom_mun, nom_loc, etc.)" />
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="actions">
+            <button id="btnLimpiar" class="btn btn-outline">Limpiar filtros</button>
+            <button id="btnDensidad" class="btn btn-success">Densidad (%)</button>
+            <button id="btnExportPNG" class="btn btn-outline">Exportar PNG</button>
+            <button id="btnCSV" class="btn btn-outline">Descargar CSV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section id="kpis" class="grid grid-5" style="margin-top:16px">
+      <div class="kpi"><div class="label">Asiste (3–24)</div><div class="value" id="kpiAsiste">—</div><div class="sub">Total asistentes</div></div>
+      <div class="kpi"><div class="label">Femenino</div><div class="value" id="kpiFem">—</div><div class="sub">Asistentes 3–24</div></div>
+      <div class="kpi"><div class="label">Masculino</div><div class="value" id="kpiMas">—</div><div class="sub">Asistentes 3–24</div></div>
+      <div class="kpi"><div class="label">% Asistencia</div><div class="value" id="kpiPct">—</div><div class="sub">vs población del rango</div></div>
+      <div class="kpi"><div class="label">Localidades incluidas</div><div class="value" id="kpiLocs">—</div><div class="sub">Tras filtros activos</div></div>
+    </section>
+
+    <!-- Gráfico -->
+    <section class="card" style="margin-top:16px">
+      <h3>Acceso educativo por rango de edad</h3>
+      <div class="chart-wrap">
+        <canvas id="chartAcceso" height="140"></canvas>
+      </div>
+      <div class="chart-actions">
+        <button id="btnModoTotal" class="btn btn-outline">Totales</button>
+        <button id="btnModoFem" class="btn btn-outline">Femenino</button>
+        <button id="btnModoMas" class="btn btn-outline">Masculino</button>
+      </div>
+      <div class="note">El botón “Densidad (%)” convierte las barras a proporción respecto al total de cada rango.</div>
+    </section>
+
+    <!-- Tabla -->
+    <section class="card card--gris" style="margin-top:16px">
+      <h3>Tabla de acceso a la educación (registros filtrados)</h3>
+      <div class="table-controls" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;align-items:center">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-weight:600;font-size:.9rem;color:#374151">Vista por rango:</span>
+          <button class="btn btn-outline btn-range" data-range="all">Todos</button>
+          <button class="btn btn-outline btn-range" data-range="3-5">3–5</button>
+          <button class="btn btn-outline btn-range" data-range="6-11">6–11</button>
+          <button class="btn btn-outline btn-range" data-range="12-14">12–14</button>
+          <button class="btn btn-outline btn-range" data-range="15-17">15–17</button>
+          <button class="btn btn-outline btn-range" data-range="18-24">18–24</button>
+        </div>
+        <div style="width:1px;height:24px;background:#e5e7eb"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-weight:600;font-size:.9rem;color:#374151">Variables:</span>
+          <button class="btn btn-outline btn-sex" data-sex="tot">Totales</button>
+          <button class="btn btn-outline btn-sex" data-sex="f">Femenino</button>
+          <button class="btn btn-outline btn-sex" data-sex="m">Masculino</button>
+          <button class="btn btn-outline btn-sex" data-sex="all">Todos</button>
+        </div>
+      </div>
+      <div id="tablaAcceso"></div>
+      <div class="table-actions">
+        <input type="text" id="txtBuscarTablaSec" placeholder="Buscar rápido…" />
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    // ----------------------
+    // 1) Conexión Supabase
+    // ----------------------
+    const SUPABASE_URL = "https://tlamatiloyan-api.morelos.gob.mx";
+const SUPABASE_ANON_KEY = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function cargarDatos(){
+      const { data, error } = await supabase.from("demografia_morelos").select("*");
+      if(error){ console.error("Supabase:", error); return []; }
+      return data || [];
+    }
+
+    // ----------------------
+    // 2) Utilidades
+    // ----------------------
+    const $ = (sel) => document.querySelector(sel);
+    const fmt = new Intl.NumberFormat("es-MX");
+    const fmtPct = new Intl.NumberFormat("es-MX",{maximumFractionDigits:1});
+
+    const fields = {
+      p_3a5:"p_3a5", p_6a11:"p_6a11", p_12a14:"p_12a14",
+      p_3a5_f:"p_3a5_f", p_3a5_m:"p_3a5_m",
+      p_6a11_f:"p_6a11_f", p_6a11_m:"p_6a11_m",
+      p_12a14_f:"p_12a14_f", p_12a14_m:"p_12a14_m",
+      p3a5_noa:"p3a5_noa", p3a5_noa_f:"p3a5_noa_f", p3a5_noa_m:"p3a5_noa_m",
+      p6a11_noa:"p6a11_noa", p6a11_noaf:"p6a11_noaf", p6a11_noam:"p6a11_noam",
+      p12a14noa:"p12a14noa", p12a14noaf:"p12a14noaf", p12a14noam:"p12a14noam",
+      p15a17a:"p15a17a", p15a17a_f:"p15a17a_f", p15a17a_m:"p15a17a_m",
+      p18a24a:"p18a24a", p18a24a_f:"p18a24a_f", p18a24a_m:"p18a24a_m",
+    };
+    const f = (r, k, df=0) => Number(r?.[k] ?? 0) || df;
+
+    function calcByRecord(r){
+      const a3t = f(r,fields.p_3a5)    - f(r,fields.p3a5_noa);
+      const a3f = f(r,fields.p_3a5_f)  - f(r,fields.p3a5_noa_f);
+      const a3m = f(r,fields.p_3a5_m)  - f(r,fields.p3a5_noa_m);
+
+      const a6t = f(r,fields.p_6a11)   - f(r,fields.p6a11_noa);
+      const a6f = f(r,fields.p_6a11_f) - f(r,fields.p6a11_noaf);
+      const a6m = f(r,fields.p_6a11_m) - f(r,fields.p6a11_noam);
+
+      const a12t = f(r,fields.p_12a14)   - f(r,fields.p12a14noa);
+      const a12f = f(r,fields.p_12a14_f) - f(r,fields.p12a14noaf);
+      const a12m = f(r,fields.p_12a14_m) - f(r,fields.p12a14noam);
+
+      const a15t = f(r,fields.p15a17a);
+      const a15f = f(r,fields.p15a17a_f);
+      const a15m = f(r,fields.p15a17a_m);
+
+      const a18t = f(r,fields.p18a24a);
+      const a18f = f(r,fields.p18a24a_f);
+      const a18m = f(r,fields.p18a24a_m);
+
+      const t3 = f(r,fields.p_3a5);
+      const t6 = f(r,fields.p_6a11);
+      const t12 = f(r,fields.p_12a14);
+      const t15 = a15t;
+      const t18 = a18t;
+
+      return { a3t,a3f,a3m, a6t,a6f,a6m, a12t,a12f,a12m, a15t,a15f,a15m, a18t,a18f,a18m, t3,t6,t12,t15,t18 };
+    }
+
+    function aggregate(arr){
+      return arr.reduce((acc, r) => {
+        const c = calcByRecord(r);
+        for (const k of Object.keys(c)) acc[k] = (acc[k]||0) + c[k];
+        return acc;
+      }, {});
+    }
+
+    // ----------------------
+    // 3) Estado UI
+    // ----------------------
+    let RAW = [];
+    let MODE = "total"; // "total" | "fem" | "mas"
+    let DENSITY = false;
+
+    // ----------------------
+    // 4) Carga inicial
+    // ----------------------
+    const selMunicipio = document.querySelector("#selMunicipio");
+    const selLocalidad = document.querySelector("#selLocalidad");
+    const txtBuscarTabla = document.querySelector("#txtBuscarTabla");
+    const txtBuscarTablaSec = document.querySelector("#txtBuscarTablaSec");
+    const btnLimpiar = document.querySelector("#btnLimpiar");
+    const btnDensidad = document.querySelector("#btnDensidad");
+    const btnExportPNG = document.querySelector("#btnExportPNG");
+    const btnCSV = document.querySelector("#btnCSV");
+    const btnModoTotal = document.querySelector("#btnModoTotal");
+    const btnModoFem = document.querySelector("#btnModoFem");
+    const btnModoMas = document.querySelector("#btnModoMas");
+
+    let chart;
+    let table;
+
+    init();
+    async function init(){
+      RAW = await cargarDatos();
+      poblarSelects(RAW);
+      construirTabla([]); // placeholder
+      render();
+    }
+
+    // ----------------------
+    // 5) Selects dependientes
+    // ----------------------
+    function poblarSelects(data){
+      const munis = [...new Set(data.map(d => d.nom_mun).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+      fill(selMunicipio, ["Todos", ...munis]);
+
+      actualizarLocalidades();
+      selMunicipio.addEventListener("change", () => {
+        actualizarLocalidades();
+        render();
+      });
+      selLocalidad.addEventListener("change", render);
+    }
+
+    function actualizarLocalidades(){
+      const mun = selMunicipio.value || "Todos";
+      let locs;
+      if(mun==="Todos"){
+        locs = [...new Set(RAW.map(d => d.nom_loc).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+      }else{
+        locs = [...new Set(RAW.filter(d => d.nom_mun===mun).map(d => d.nom_loc).filter(Boolean))]
+          .sort((a,b)=>a.localeCompare(b,"es"));
+      }
+      fill(selLocalidad, ["Todas", ...locs]);
+    }
+
+    function fill(select, options){
+      select.innerHTML = options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
+      select.value = options[0] ?? "";
+    }
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
+    }
+
+    // ----------------------
+    // 6) Filtrado + Render
+    // ----------------------
+    function getFiltered(){
+      const m = selMunicipio.value || "Todos";
+      const l = selLocalidad.value || "Todas";
+      return RAW.filter(r => (m==="Todos" || r.nom_mun===m) && (l==="Todas" || r.nom_loc===l));
+    }
+
+    function render(){
+      const filtered = getFiltered();
+      const agg = aggregate(filtered);
+
+      const asisteTotal = (agg.a3t||0)+(agg.a6t||0)+(agg.a12t||0)+(agg.a15t||0)+(agg.a18t||0);
+      const femTotal = (agg.a3f||0)+(agg.a6f||0)+(agg.a12f||0)+(agg.a15f||0)+(agg.a18f||0);
+      const masTotal = (agg.a3m||0)+(agg.a6m||0)+(agg.a12m||0)+(agg.a15m||0)+(agg.a18m||0);
+      const poblTotal = (agg.t3||0)+(agg.t6||0)+(agg.t12||0)+(agg.t15||0)+(agg.t18||0);
+      const pct = poblTotal ? (asisteTotal/poblTotal*100) : 0;
+
+      document.querySelector("#kpiAsiste").textContent = fmt.format(asisteTotal);
+      document.querySelector("#kpiFem").textContent = fmt.format(femTotal);
+      document.querySelector("#kpiMas").textContent = fmt.format(masTotal);
+      document.querySelector("#kpiPct").textContent = fmtPct.format(pct) + "%";
+      document.querySelector("#kpiLocs").textContent = fmt.format(new Set(filtered.map(r=>r.nom_loc).filter(Boolean)).size);
+
+      const labels = ["3–5","6–11","12–14","15–17","18–24"];
+      const series = MODE==="total"
+        ? [agg.a3t||0, agg.a6t||0, agg.a12t||0, agg.a15t||0, agg.a18t||0]
+        : MODE==="fem"
+          ? [agg.a3f||0, agg.a6f||0, agg.a12f||0, agg.a15f||0, agg.a18f||0]
+          : [agg.a3m||0, agg.a6m||0, agg.a12m||0, agg.a15m||0, agg.a18m||0];
+
+      const totals = [agg.t3||0, agg.t6||0, agg.t12||0, agg.t15||0, agg.t18||0];
+      const values = DENSITY ? series.map((v,i)=> totals[i] ? v/totals[i]*100 : 0) : series;
+
+      renderChart(labels, values, DENSITY);
+
+      construirTabla(filtered);
+      aplicarBuscadores();
+      initTableControls();
+    }
+
+    // ----------------------
+    // 7) Chart.js
+    // ----------------------
+    function renderChart(labels, data, isPct){
+      const ctx = document.querySelector("#chartAcceso");
+      Chart.register(ChartDataLabels);
+      if(chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type:"bar",
+        data:{ labels, datasets:[{label: isPct ? "% Asistencia" : "Asistencia", data, backgroundColor: "#71785b", hoverBackgroundColor: "#2E3B2B", borderRadius: 6, borderSkipped: false, borderWidth:1}] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{
+            legend:{display:true},
+            tooltip:{ callbacks:{ label:(c)=> isPct ? `${fmtPct.format(c.raw)}%` : fmt.format(c.raw) } },
+            datalabels:{ anchor:"end", align:"end", formatter:(v)=> isPct ? `${fmtPct.format(v)}%` : fmt.format(v), font:{weight:"600", size:11} }
+          },
+          scales:{ y:{ beginAtZero:true, ticks:{ callback:(val)=> isPct ? val+"%" : fmt.format(val) } } }
+        }
+      });
+    }
+
+    document.querySelector("#btnDensidad").addEventListener("click", ()=>{ DENSITY = !DENSITY; render(); });
+    document.querySelector("#btnModoTotal").addEventListener("click", ()=>{ MODE="total"; render(); });
+    document.querySelector("#btnModoFem").addEventListener("click",   ()=>{ MODE="fem";   render(); });
+    document.querySelector("#btnModoMas").addEventListener("click",   ()=>{ MODE="mas";   render(); });
+
+    document.querySelector("#btnExportPNG").addEventListener("click", ()=>{
+      if(!chart) return;
+      const url = chart.toBase64Image("image/png", 1);
+      const a = document.createElement("a");
+      a.href=url; a.download="acceso_educacion_edad.png"; a.click();
+    });
+
+    document.querySelector("#btnLimpiar").addEventListener("click", ()=>{
+      selMunicipio.value = "Todos";
+      actualizarLocalidades();
+      selLocalidad.value = "Todas";
+      txtBuscarTabla.value = "";
+      txtBuscarTablaSec.value = "";
+      render();
+    });
+
+    // ----------------------
+    // 8) Tabla (Tabulator)
+    // ----------------------
+    function construirTabla(rows){
+      const data = rows.map(r => {
+        const c = calcByRecord(r);
+        return {
+          nom_mun: r.nom_mun, nom_loc: r.nom_loc,
+          a3t:c.a3t, a3f:c.a3f, a3m:c.a3m, t3:c.t3,
+          a6t:c.a6t, a6f:c.a6f, a6m:c.a6m, t6:c.t6,
+          a12t:c.a12t, a12f:c.a12f, a12m:c.a12m, t12:c.t12,
+          a15t:c.a15t, a15f:c.a15f, a15m:c.a15m, t15:c.t15,
+          a18t:c.a18t, a18f:c.a18f, a18m:c.a18m, t18:c.t18,
+        };
+      });
+
+      const cols = [
+        {title:"Municipio", field:"nom_mun", headerFilter:true, frozen:true},
+        {title:"Localidad", field:"nom_loc", headerFilter:true, frozen:true},
+        { title:"3–5", columns:[
+            {title:"Total", field:"a3t", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"F", field:"a3f", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"M", field:"a3m", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"Pobl.", field:"t3", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+        ]},
+        { title:"6–11", columns:[
+            {title:"Total", field:"a6t", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"F", field:"a6f", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"M", field:"a6m", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"Pobl.", field:"t6", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+        ]},
+        { title:"12–14", columns:[
+            {title:"Total", field:"a12t", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"F", field:"a12f", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"M", field:"a12m", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"Pobl.", field:"t12", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+        ]},
+        { title:"15–17", columns:[
+            {title:"Total", field:"a15t", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"F", field:"a15f", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"M", field:"a15m", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"Pobl. (proxy)", field:"t15", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+        ]},
+        { title:"18–24", columns:[
+            {title:"Total", field:"a18t", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"F", field:"a18f", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"M", field:"a18m", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+            {title:"Pobl. (proxy)", field:"t18", hozAlign:"right", formatter:"money", formatterParams:{decimal:",",thousand:"."}},
+        ]},
+      ];
+
+      if(!table){
+        table = new Tabulator("#tablaAcceso", {
+          data, layout:"fitColumns", reactiveData:true, pagination:true, paginationSize:10, columns: cols
+        });
+      }else{
+        table.setColumns(cols);
+        table.setData(data);
+      }
+    }
+
+    function aplicarBuscadores(){
+      const runSearch = () => {
+        const q1 = (txtBuscarTabla.value||"").trim();
+        const q2 = (txtBuscarTablaSec.value||"").trim();
+        const q = (q1+" "+q2).trim();
+        if(!q){ table.clearFilter(true); }
+        else{
+          table.setFilter([[ {field:"nom_mun", type:"like", value:q}, {field:"nom_loc", type:"like", value:q} ]]);
+        }
+      };
+      txtBuscarTabla.oninput = runSearch;
+      txtBuscarTablaSec.oninput = runSearch;
+      runSearch();
+    }
+
+    // ----------------------
+    // 8.1) Controles de tabla
+    // ----------------------
+    let RANGE_MODE = "all"; // all | 3-5 | 6-11 | 12-14 | 15-17 | 18-24
+    let SEX_MODE = "tot";   // tot | f | m | all
+
+    const RANGE_FIELDS = {
+      "3-5":  ["a3t","a3f","a3m","t3"],
+      "6-11": ["a6t","a6f","a6m","t6"],
+      "12-14":["a12t","a12f","a12m","t12"],
+      "15-17":["a15t","a15f","a15m","t15"],
+      "18-24":["a18t","a18f","a18m","t18"],
+    };
+
+    function applyTableView(){
+      if(!table) return;
+      const allFields = [].concat(...Object.values(RANGE_FIELDS));
+      for(const f of allFields){ try{ table.showColumn(f); }catch(e){} }
+
+      if(RANGE_MODE !== "all"){
+        const keep = new Set(RANGE_FIELDS[RANGE_MODE]);
+        for(const f of allFields){ if(!keep.has(f)) { try{ table.hideColumn(f); }catch(e){} } }
+      }
+
+      if(SEX_MODE !== "all"){
+        const sexSuffix = SEX_MODE === "tot" ? "t" : (SEX_MODE === "f" ? "f" : "m");
+        const mapKeep = [];
+        for(const [range, fields] of Object.entries(RANGE_FIELDS)){
+          const [aTot, aF, aM, pobl] = fields;
+          if(SEX_MODE === "tot") mapKeep.push(aTot, pobl);
+          if(SEX_MODE === "f")   mapKeep.push(aF);
+          if(SEX_MODE === "m")   mapKeep.push(aM);
+        }
+        const keepSet = new Set(mapKeep);
+        for(const f of (RANGE_MODE==="all" ? allFields : RANGE_FIELDS[RANGE_MODE])){
+          if(!keepSet.has(f)) { try{ table.hideColumn(f); }catch(e){} }
+        }
+      }
+    }
+
+    function setSelected(selector, valueAttr){
+      document.querySelectorAll(selector).forEach(btn=>{
+        btn.classList.toggle("is-selected", btn.getAttribute(valueAttr)=== (selector.includes('.btn-range')? RANGE_MODE : SEX_MODE));
+      });
+    }
+
+    function initTableControls(){
+      RANGE_MODE = "all";  SEX_MODE = "tot";
+      document.querySelectorAll(".btn-range").forEach(b=>{
+        b.addEventListener("click",()=>{ RANGE_MODE = b.dataset.range; setSelected(".btn-range","data-range"); applyTableView(); });
+      });
+      document.querySelectorAll(".btn-sex").forEach(b=>{
+        b.addEventListener("click",()=>{ SEX_MODE = b.dataset.sex; setSelected(".btn-sex","data-sex"); applyTableView(); });
+      });
+      setSelected(".btn-range","data-range");
+      setSelected(".btn-sex","data-sex");
+      applyTableView();
+    }
+
+    // 9) CSV Export (Tabulator)
+    document.querySelector("#btnCSV").addEventListener("click", ()=>{
+      if(!table) return;
+      table.download("csv", "acceso_educacion_edad.csv");
+    });
+  </script>
+</body>
+</html>
