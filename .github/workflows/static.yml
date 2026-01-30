@@ -31,8 +31,8 @@ jobs:
 
 
       - name: Install dependencies
-        working-directory: atlas-morelos
-        run: npm ci
+  working-directory: atlas-morelos
+  run: npm install
 
       - name: Build
         working-directory: atlas-morelos
