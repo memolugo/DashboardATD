@@ -1,0 +1,2135 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tablero Ejecutivo TPBV</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Softr does not need a special SDK, we'll use fetch -->
+
+  <style>
+    :root {
+      --bg: #F6F7F4;
+      --card: #FFFFFF;
+      --ink: #111827;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --shadow: 0 14px 30px rgba(0, 0, 0, .08);
+      --radius: 18px;
+
+      --brand: #71785B;
+      --brand2: #616a4f;
+      --gold: #BC9B73;
+
+      --chip: #F1F5F9;
+      --chip2: #EEF2FF;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1000px 500px at 10% 0%, rgba(188, 155, 115, .12), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(113, 120, 91, .12), transparent 55%),
+        var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
+      color: var(--ink);
+    }
+
+    /* =========================
+       HEADER (estilo demografico.html)
+    ========================== */
+    .header-grad {
+      background: linear-gradient(90deg, #2E3B2B, #71785b);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, .12);
+    }
+
+    .hbtn {
+      border: 1px solid rgba(255, 255, 255, .22);
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+      box-shadow: 0 10px 18px rgba(0, 0, 0, .12);
+      backdrop-filter: blur(10px);
+      font-size: 14px;
+    }
+
+    .hbtn:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, .18);
+    }
+
+    .hbtn.primary {
+      background: rgba(188, 155, 115, .95);
+      border-color: rgba(255, 255, 255, .18);
+      color: #fff;
+    }
+
+    .hbtn.primary:hover {
+      background: rgba(188, 155, 115, 1);
+    }
+
+    /* =========================
+       WRAP
+    ========================== */
+    .wrap {
+      max-width: 1320px;
+      margin: 18px auto 32px;
+      padding: 0 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, .80);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-h {
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-h .title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+
+    .card-h .sub {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .filters {
+      padding: 12px 16px 16px;
+    }
+
+    .filters-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1.2fr 1fr;
+      gap: 12px;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin: 0 0 6px;
+      font-weight: 800;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      outline: none;
+      font-size: 13px;
+      color: var(--ink);
+      transition: border-color .12s ease, box-shadow .12s ease;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: rgba(113, 120, 91, .55);
+      box-shadow: 0 0 0 4px rgba(113, 120, 91, .12);
+    }
+
+    .note {
+      padding: 0 16px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .okdot {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(113, 120, 91, .14);
+      border: 1px solid rgba(113, 120, 91, .22);
+      color: var(--brand);
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    /* =========================
+       MAP
+    ========================== */
+    .map-wrap {
+      padding: 0 12px 12px;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .02);
+      background: #fff;
+    }
+
+    .map-toolbar {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      z-index: 500;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .segmented {
+      display: flex;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .85);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: 0 10px 18px rgba(0, 0, 0, .08);
+    }
+
+    .segmented button {
+      border: 0;
+      background: transparent;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 850;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      transition: background .12s ease, color .12s ease;
+    }
+
+    .segmented button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, .08);
+    }
+
+    .mini-btn {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .85);
+      backdrop-filter: blur(8px);
+      padding: 8px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 850;
+      font-size: 12px;
+      color: var(--ink);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, .08);
+    }
+
+    /* =========================
+       SUMMARY UNDER MAP
+    ========================== */
+    .summaryline {
+      border-top: 1px solid var(--border);
+      background: rgba(255, 255, 255, .85);
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .summaryline .left {
+      font-weight: 800;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .summaryline .left b {
+      font-weight: 950;
+    }
+
+    .summaryline .right {
+      font-size: 12px;
+      font-weight: 750;
+      color: var(--muted);
+    }
+
+    /* =========================
+       SECTIONS + KPI CARDS
+    ========================== */
+    .sections {
+      padding: 14px 16px 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .sectionBox {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .06);
+    }
+
+    .sectionHead {
+      padding: 12px 14px;
+      background: #fafafa;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 950;
+    }
+
+    .sectionHead span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .kpiGrid {
+      padding: 12px 12px 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .kpi {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 12px;
+      background: #fff;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .05);
+      min-height: 92px;
+    }
+
+    .kpi .t {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .kpi .v {
+      font-size: 22px;
+      font-weight: 950;
+      margin-top: 5px;
+      letter-spacing: .2px;
+    }
+
+    .kpi .s {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .pct {
+      font-weight: 950;
+      color: #374151;
+    }
+
+    /* =========================
+       TABLE
+    ========================== */
+    .tableCard {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .06);
+    }
+
+    .tableHead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #fafafa;
+    }
+
+    .tableHead b {
+      font-size: 13px
+    }
+
+    .tableHead span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      padding: 10px 10px;
+      border-bottom: 1px solid #F0F2F5;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #fbfbfb;
+      color: var(--muted);
+      font-weight: 950;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: #fbfcff
+    }
+
+    .scroll {
+      max-height: 340px;
+      overflow: auto;
+    }
+
+    /* =========================
+       LOADING
+    ========================== */
+    .pillStatus {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 850;
+      font-size: 12px;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #E5E7EB;
+      border-top-color: var(--brand);
+      border-radius: 999px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* =========================
+       RESPONSIVE
+    ========================== */
+    @media (max-width: 980px) {
+      .filters-row {
+        grid-template-columns: 1fr 1fr
+      }
+
+      .kpiGrid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      #map {
+        height: 460px;
+      }
+
+      .header-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .header-title {
+        order: 1;
+      }
+
+      .header-left {
+        order: 0;
+        justify-content: center;
+      }
+
+      .header-actions {
+        order: 2;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .filters-row {
+        grid-template-columns: 1fr
+      }
+
+      .kpiGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* =========================
+       PRINT (PDF) ✅ Profesional
+       - NO MAPA
+       - Saltos correctos
+       - Sin sombras
+    ========================== */
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+      }
+
+      header.header {
+        box-shadow: none !important;
+        border-bottom: 1px solid #d1d5db !important;
+      }
+
+      .wrap {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Quita botones y elementos interactivos */
+      .header-actions,
+      .map-wrap,
+      #map,
+      .map-toolbar,
+      .scroll {
+        display: none !important;
+      }
+
+      /* no sticky headers que se ven raro */
+      th {
+        position: static !important;
+      }
+
+      /* evita cortes feos */
+      .card,
+      .sectionBox,
+      .kpi,
+      .tableCard {
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        background: #fff !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .sections {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      /* tabla sí puede romper página */
+      table {
+        page-break-inside: auto;
+      }
+
+      tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      thead {
+        display: table-header-group;
+      }
+
+      tfoot {
+        display: table-footer-group;
+      }
+
+      /* mostramos tabla completa en PDF */
+      .scroll {
+        max-height: none !important;
+        overflow: visible !important;
+      }
+
+      /* oculta hover */
+      tbody tr:hover {
+        background: transparent !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header class="w-full header-grad text-white py-4 sm:py-5 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 text-center sm:text-left">
+        <img src="https://rawcdn.githack.com/memolugo/DashboardATD/bdc774c87976d9e8341f893659634dfc1ff36e51/ATD%205.png"
+          alt="ATD · Gobierno del Estado de Morelos"
+          class="h-12 sm:h-16 md:h-20 object-contain shrink-0 mx-auto sm:mx-0" loading="lazy" />
+        <div>
+          <h1 class="text-xl sm:text-2xl md:text-3xl font-bold leading-tight">Tablero Ejecutivo TPBV</h1>
+          <p class="text-white/80 text-xs sm:text-sm">Estado de Morelos · Transformación Digital</p>
+        </div>
+      </div>
+      <div class="flex gap-2 self-center md:self-auto">
+        <button class="hbtn" id="btnReload">⟳ Recargar</button>
+        <button class="hbtn primary" id="btnPDF">🖨 Imprimir PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+
+      <!-- FILTROS -->
+      <section class="card">
+        <div class="card-h">
+          <div>
+            <div class="title">Filtros</div>
+            <div class="sub" id="filteredHint">0 filas filtradas</div>
+          </div>
+
+          <!-- ✅ Ya NO dice "Listo" -->
+          <div class="pillStatus">
+            <span class="spinner" id="spin" style="display:none;"></span>
+            <span id="statusText">Actualizando...</span>
+          </div>
+        </div>
+
+        <!-- BANNER DE DIAGNÓSTICO CORS -->
+        <div id="corsBanner"
+          style="display:none; background: #FEF2F2; border: 1px solid #FCA5A5; padding: 12px; margin: 16px; border-radius: 12px; font-size: 13px; color: #991B1B;">
+          <b style="font-size:14px; display:block; margin-bottom:6px;">⚠️ Error de Seguridad (CORS) Detectado</b>
+          El navegador está bloqueando la conexión a la API de Softr por seguridad local.<br><br>
+          <b>Para solucionarlo:</b>
+          <ol style="margin-top:8px; padding-left:20px;">
+            <li>Abre una terminal en esta carpeta</li>
+            <li>Ejecuta: <code
+                style="background:#fff; padding:2px 4px; border:1px solid #ddd;">python -m http.server</code></li>
+            <li>Entra en tu navegador a: <a href="http://localhost:8000" target="_blank"
+                style="color:#B91C1C; font-weight:bold;">http://localhost:8000</a></li>
+          </ol>
+        </div>
+
+        <div class="filters">
+          <div class="filters-row">
+            <div class="field">
+              <label>Región</label>
+              <select id="selZone">
+                <option value="Todas las regiones">Todas las regiones</option>
+                <option value="Altos">Altos</option>
+                <option value="Centro">Centro</option>
+                <option value="Oriente">Oriente</option>
+                <option value="Sur">Sur</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Polígono</label>
+              <select id="selPoly">
+                <option value="Todos los Polígonos">Todos los Polígonos</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Municipio</label>
+              <select id="selMun">
+                <option value="Todos">Todos</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Localidad</label>
+              <select id="selLoc">
+                <option value="">—</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Indicador (solo afecta tabla)</label>
+              <select id="selInd">
+                <optgroup label="Población">
+                  <option value="POB1" selected>Población total (POB1)</option>
+                  <option value="POB42">Mujeres (POB42)</option>
+                  <option value="POB84">Hombres (POB84)</option>
+                </optgroup>
+                <optgroup label="Vivienda">
+                  <option value="VIV0">Total Viviendas (VIV0)</option>
+                  <option value="VIV7">Piso de tierra (VIV7)</option>
+                  <option value="VIV10">Con hacinamiento (VIV10)</option>
+                </optgroup>
+                <optgroup label="Índices (si existen en tabla)">
+                  <option value="GM_2020_y">Grado de marginación 2020 (GM_2020)</option>
+                  <option value="IMN_2020_y">Índice marginación normalizado (IMN_2020)</option>
+                </optgroup>
+                <optgroup label="Otros">
+                  <option value="AFRO1">Pob. afromexicana (AFRO1)</option>
+                  <option value="DISC4">Discapacidad total (DISC4)</option>
+                  <option value="DISC5">Disc. 0–14 (DISC5)</option>
+                  <option value="DISC6">Disc. 15+ (DISC6)</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Buscar localidad</label>
+              <input id="txtSearch" placeholder="Ej: Alpuyeca" />
+            </div>
+          </div>
+        </div>
+
+        <div class="note">
+          <span class="okdot">✓</span>
+          <span><b>Nota:</b> aunque elijas un indicador, <b>siempre verás todas las tarjetas</b> (Población, Vivienda,
+            Índices y Otros).</span>
+        </div>
+      </section>
+
+      <!-- MAPA -->
+      <section class="card" id="mapCard">
+        <div class="card-h">
+          <div>
+            <div class="title">Mapa — Municipios de Morelos</div>
+            <div class="sub">Click en municipio para filtrar (si lo pulsas otra vez, vuelve a <b>Todos</b>)</div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span class="pillStatus" style="color:#374151;">
+              Indicador tabla: <b id="indName" style="margin-left:6px;">POB1</b>
+            </span>
+          </div>
+        </div>
+
+        <div class="map-wrap">
+          <div class="map-toolbar">
+            <div class="segmented">
+              <button id="btnModeMun" class="active">Municipios</button>
+              <button id="btnModeLoc">Localidades</button>
+            </div>
+            <button class="mini-btn" id="btnClear">Limpiar</button>
+          </div>
+
+          <div id="map"></div>
+        </div>
+
+        <div class="summaryline" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <div class="left" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span><b>Región:</b> <span id="sumZone">Todas</span></span>&nbsp;•&nbsp;
+            <span><b>Municipio:</b> <span id="sumMun">Todos</span></span>&nbsp;•&nbsp;
+            <span><b>Polígono:</b> <span id="sumPoly">—</span></span>&nbsp;•&nbsp;
+            <span><b>Localidad:</b> <span id="sumLoc">—</span></span>
+          </div>
+          <div class="right" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span><b>Promotor:</b> <span id="sumProm">—</span></span>&nbsp;•&nbsp;
+            <span><b>Coord. Regional:</b> <span id="sumCoord">—</span></span>
+          </div>
+        </div>
+
+        <!-- TARJETAS (SIEMPRE TODAS) -->
+        <div class="sections">
+          <div class="sectionBox">
+            <div class="sectionHead">Población <span>Totales según filtros</span></div>
+            <div class="kpiGrid">
+              <div class="kpi">
+                <div class="t">Población total</div>
+                <div class="v" id="kPOB1">—</div>
+                <div class="s"><span>POB1</span><span class="pct" id="pPOB1">(100%)</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Mujeres</div>
+                <div class="v" id="kPOB42">—</div>
+                <div class="s"><span>POB42</span><span class="pct" id="pPOB42">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Hombres</div>
+                <div class="v" id="kPOB84">—</div>
+                <div class="s"><span>POB84</span><span class="pct" id="pPOB84">—</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sectionBox">
+            <div class="sectionHead">Vivienda <span>Totales según filtros</span></div>
+            <div class="kpiGrid">
+              <div class="kpi">
+                <div class="t">Total Viviendas</div>
+                <div class="v" id="kVIV0">—</div>
+                <div class="s"><span>VIV0</span><span class="pct" id="pVIV0">(100%)</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Piso de tierra</div>
+                <div class="v" id="kVIV7">—</div>
+                <div class="s"><span>VIV7</span><span class="pct" id="pVIV7">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Con hacinamiento</div>
+                <div class="v" id="kVIV10">—</div>
+                <div class="s"><span>VIV10</span><span class="pct" id="pVIV10">—</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sectionBox">
+            <div class="sectionHead">Índices <span>Totales según filtros</span></div>
+            <div class="kpiGrid">
+              <div class="kpi">
+                <div class="t">Grado de marginación 2020</div>
+                <div class="v" id="kGM2020">—</div>
+                <div class="s"><span>GM_2020_y</span><span class="pct">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Índice marginación normalizado</div>
+                <div class="v" id="kIMN2020">—</div>
+                <div class="s"><span>IMN_2020_y</span><span class="pct">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Indicador seleccionado (tabla)</div>
+                <div class="v" id="kSelectedInd">—</div>
+                <div class="s"><span id="kSelectedIndCode">POB1</span><span class="pct">—</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sectionBox">
+            <div class="sectionHead">Otros <span>Totales según filtros</span></div>
+            <div class="kpiGrid">
+              <div class="kpi">
+                <div class="t">Pob. afromexicana</div>
+                <div class="v" id="kAFRO1">—</div>
+                <div class="s"><span>AFRO1</span><span class="pct" id="pAFRO1">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Discapacidad total</div>
+                <div class="v" id="kDISC4">—</div>
+                <div class="s"><span>DISC4</span><span class="pct" id="pDISC4">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Discapacidad (0–14)</div>
+                <div class="v" id="kDISC5">—</div>
+                <div class="s"><span>DISC5</span><span class="pct" id="pDISC5">—</span></div>
+              </div>
+              <div class="kpi">
+                <div class="t">Discapacidad (15+)</div>
+                <div class="v" id="kDISC6">—</div>
+                <div class="s"><span>DISC6</span><span class="pct" id="pDISC6">—</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TABLA (solo indicador afecta aquí) -->
+          <div class="tableCard">
+            <div class="tableHead">
+              <div>
+                <b>Localidades filtradas</b>
+                <div style="height:4px"></div>
+                <span id="tableMeta">0 filas</span>
+              </div>
+              <span id="tableNote">Mostrando hasta 200</span>
+            </div>
+
+            <div class="scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Municipio</th>
+                    <th>Localidad</th>
+                    <th id="thInd">Indicador</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody">
+                  <tr>
+                    <td colspan="3" style="color:#6B7280; padding:14px;">Sin resultados</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    /***********************
+     * CONFIG ✅
+     ***********************/
+    const SOFTR_API_KEY = "ZxXK2hBLo49nV1ShbAEVZEk1A";
+    const SOFTR_DB_ID = "ee6191aa-4bae-48fd-9be8-7aa694690dbf";
+    const SOFTR_TABLE_ID = "l2d0fSW6jcwSfp";
+
+    const GEOJSON_URL = "./MorelosgeosonEPSG4326.geojson";
+    const POLIGONOS_URL = "./Poligonos_epsg4326.geojson";
+
+    const REGIONS_MAP = {
+      "Altos": [1, 23, 12, 15, 18, 20],     // Atlatlahucan, Hueyapan, Tetela del Volcán, Tlayacapan, Yecapixtla, Tlalnepantla
+      "Centro": [5, 6, 7, 10, 16, 17],    // Emiliano Zapata, Huitzilac, Jiutepec, Temixco, Xochitepec, Yautepec
+      "Oriente": [2, 3, 4, 9, 11],       // Axochiapan, Ayala, Cuautla, Jonacatepec, Tepalcingo
+      "Sur": [21, 8, 13, 14, 22, 19]      // Coatetelco, Jojutla, Tlaltizapan, Tlaquiltenango, Xoxocotla, Zacatepec
+    };
+
+    // Rendimiento (no cargar de más)
+    const MAX_MARKERS_TODOS = 450;
+    const MAX_MARKERS_MUN = 1200;
+    const MAX_TABLE_ROWS = 200;
+    const KPI_FETCH_LIMIT = 8000;
+
+    /***********************
+     * HELPERS
+     ***********************/
+    const $ = (id) => document.getElementById(id);
+
+    function fmt(n) {
+      if (n === null || n === undefined || isNaN(n)) return "—";
+      return new Intl.NumberFormat("es-MX").format(n);
+    }
+
+    function pct(part, total) {
+      if (!total || total <= 0) return "—";
+      const v = (part / total) * 100;
+      return `(${v.toFixed(1)}%)`;
+    }
+
+    function parseCoord(v) {
+      if (v === null || v === undefined) return null;
+      let s = String(v).trim();
+      if (!s) return null;
+
+      const neg = s.includes("-");
+      const digits = s.replace(/[^\d]/g, "");
+      if (digits.length < 2) return null;
+
+      const fixed = digits.slice(0, 2) + "." + digits.slice(2);
+      const num = Number((neg ? "-" : "") + fixed);
+
+      if (neg && (num > -90 || num < -105)) return null;
+      if (!neg && (num < 15 || num > 22)) return null;
+
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function safeNum(x) {
+      const n = Number(x);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function setLoading(isLoading, txt = "Actualizando...") {
+      $("spin").style.display = isLoading ? "inline-block" : "none";
+      $("statusText").textContent = isLoading ? txt : "Actualizado";
+    }
+
+    function nowMX() {
+      const d = new Date();
+      return d.toLocaleString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function indLabel(key) {
+      const map = {
+        POB1: "Población total (POB1)",
+        POB42: "Mujeres (POB42)",
+        POB84: "Hombres (POB84)",
+        VIV0: "Total Viviendas (VIV0)",
+        VIV7: "Piso de tierra (VIV7)",
+        VIV10: "Con hacinamiento (VIV10)",
+        GM_2020_y: "Grado de marginación 2020 (GM_2020)",
+        IMN_2020_y: "Índice marginación normalizado (IMN_2020)",
+        AFRO1: "Pob. afromexicana (AFRO1)",
+        DISC4: "Discapacidad total (DISC4)",
+        DISC5: "Disc. 0–14 (DISC5)",
+        DISC6: "Disc. 15+ (DISC6)"
+      };
+      return map[key] || key;
+    }
+
+    /***********************
+     * STATE
+     ***********************/
+    // Softr ID -> Application Key mapping
+    const SOFTR_FIELD_MAP = {
+      "8O66c": "NOM_MUN",
+      "GuuMN": "NOMGEO",
+      "VY5DW": "POB1",
+      "Qcpje": "POB42",
+      "6iEbo": "POB84",
+      "viMF4": "VIV0",
+      "E2ZTO": "VIV7",
+      "nVkt9": "VIV10",
+      "nDgiY": "GM_2020_y",
+      "bu2n5": "IMN_2020_y",
+      "qFgPd": "AFRO1",
+      "4V4C8": "DISC4",
+      "vNYmC": "DISC5",
+      "NR5FW": "DISC6",
+      "F5mtt": "Latitud",
+      "hRxTb": "Longitud",
+      "OcPdY": "Poligono"
+    };
+
+    // Cache and lock for Softr data
+    let softrDataCache = null;
+    let softrLoadingPromise = null;
+
+    let geojson = null;
+    let geoLayer = null;
+    let polyLayer = L.layerGroup();
+    let selectedLocLayer = L.layerGroup();
+    let map = null;
+    let stateBounds = null;
+
+    let mode = "mun"; // mun | loc
+    let selectedRegion = "Todas las regiones";
+    let selectedMun = "Todos";
+    let selectedPoly = "Todos los Polígonos";
+    let selectedLoc = "";
+    let searchText = "";
+    let indicator = "POB1";
+
+
+    // Helpers para manejar el valor "Todos los polígonos / Todos los Polígonos" sin romper acentos
+    function normalizeText(v) {
+      return String(v ?? "").trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // quita acentos
+    }
+    function isAllPolygonsValue(v) {
+      const n = normalizeText(v);
+      return n === "todos los poligonos" || n === "todos" || n === "all" || n === "";
+    }
+    let municipiosIndex = new Map(); // name -> layer
+    let poligonosGeojson = null;
+    let poligonosIndex = new Map(); // PolID -> feature
+    let localidadesLayer = L.layerGroup();
+
+    /***********************
+     * INIT MAP
+     ***********************/
+    function initMap() {
+      map = L.map("map", {
+        zoomControl: true,
+        preferCanvas: true,
+        center: [18.73, -99.06],
+        zoom: 9
+      });
+
+      // ✅ CREAR PANES PARA JERARQUÍA ESTRICTA
+      // Pane para polígonos (encima de mapa base)
+      map.createPane('polygonsPane');
+      map.getPane('polygonsPane').style.zIndex = 400;
+      map.getPane('polygonsPane').style.pointerEvents = 'auto';
+      //      map.getPane('polygonsPane').style.pointerEvents = 'none'; // ✅ Enabled for interaction
+
+      // Pane para marcadores/localidades (encima de polígonos)
+      map.createPane('markersPane');
+      map.getPane('markersPane').style.zIndex = 650;
+      map.getPane('markersPane').style.pointerEvents = 'auto';
+
+      const lightMap = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        { attribution: '© OpenStreetMap © CARTO' }
+      );
+
+      const satelliteMap = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community' }
+      );
+
+      // Fondo por defecto
+      lightMap.addTo(map);
+
+      const baseMaps = {
+        "Mapa Claro": lightMap,
+        "Satélite": satelliteMap
+      };
+
+      const overlayMaps = {
+        "Localidades": localidadesLayer,
+        "Polígono Seleccionado": polyLayer,
+        "Filtro Actual": selectedLocLayer
+      };
+
+      // Control de capas en esquina inferior derecha
+      L.control.layers(baseMaps, overlayMaps, { position: 'bottomright' }).addTo(map);
+
+      localidadesLayer.addTo(map);
+      polyLayer.addTo(map);
+      selectedLocLayer.addTo(map);
+    }
+
+    function clearMarkers() {
+      if (localidadesLayer) localidadesLayer.clearLayers();
+    }
+
+    function styleMunicipio() {
+      return {
+        color: "#111827",
+        weight: 1.1,
+        opacity: 0.85,
+        fillColor: "rgba(113,120,91,.08)",
+        fillOpacity: 0.35,
+        pane: 'polygonsPane' // ✅ Siempre debajo de marcadores
+      };
+    }
+
+    function highlightLayer(layer) {
+      layer.setStyle({
+        weight: 3.5,
+        color: "#111827",
+        fillColor: "rgba(188,155,115,.40)",
+        fillOpacity: 0.85,
+        pane: 'polygonsPane'
+      });
+    }
+
+    function highlightZoneLayer(layer) {
+      layer.setStyle({
+        weight: 4,         // ✅ Borde más robusto
+        color: "#78350f",
+        fillColor: "#bc9b73",
+        fillOpacity: 0.90, // ✅ Alta opacidad para contraste satelital
+        pane: 'polygonsPane'
+      });
+    }
+
+    function resetLayerStyle(layer) {
+      geoLayer.resetStyle(layer);
+    }
+
+    function fitToState() {
+      if (!stateBounds) return;
+      map.fitBounds(stateBounds, { padding: [18, 18] });
+    }
+
+    function fitToZoneRegion(regionName) {
+      const ids = REGIONS_MAP[regionName] || [];
+      // Mapear IDs a nombres de municipios
+      const munNames = new Set();
+      softrDataCache.forEach(d => {
+        if (ids.includes(Number(d.Poligono)) && d.NOM_MUN) munNames.add(d.NOM_MUN);
+      });
+      const layers = Array.from(munNames).map(m => municipiosIndex.get(m)).filter(Boolean);
+      if (layers.length === 0) return;
+      const group = L.featureGroup(layers);
+      map.fitBounds(group.getBounds(), { padding: [22, 22] });
+    }
+
+    function fitToMunicipio(name) {
+      const layer = municipiosIndex.get(name);
+      if (!layer) return;
+      map.fitBounds(layer.getBounds(), {
+        padding: [22, 22],
+        maxZoom: 11
+      });
+    }
+
+    function clickMunicipio(feature) {
+      const name = (feature?.properties?.NOMGEO || "—").trim();
+
+      // Mutuamente excluyente con Región y Polígono
+      selectedRegion = "Todas las regiones";
+      $("selZone").value = "Todas las regiones";
+      selectedPoly = "Todos los polígonos";
+      $("selPoly").value = "Todos los polígonos";
+
+      // Toggle off if same municipality clicked
+      if (selectedMun === name) {
+        selectedMun = "Todos";
+        selectedLoc = "";
+        $("selMun").value = "Todos";
+        $("selLoc").value = "";
+        $("txtSearch").value = "";
+        searchText = "";
+      } else {
+        selectedMun = name;
+        selectedLoc = "";
+        $("selMun").value = name;
+        $("selLoc").value = "";
+        $("txtSearch").value = "";
+        searchText = "";
+      }
+
+      setMode("mun");
+
+      refreshAll();
+    }
+
+    async function loadGeoJSON() {
+      try {
+        setLoading(true, "Cargando mapas...");
+
+        // 1. Cargar Municipios
+        const resMun = await fetch(GEOJSON_URL);
+        if (!resMun.ok) throw new Error(`Archivo no encontrado: ${GEOJSON_URL}`);
+        geojson = await resMun.json();
+
+        if (geoLayer) {
+          geoLayer.remove();
+          municipiosIndex.clear();
+        }
+
+        geoLayer = L.geoJSON(geojson, {
+          style: styleMunicipio,
+          pane: 'polygonsPane', // ✅ Forzar pane
+          onEachFeature: (feature, layer) => {
+            const name = feature?.properties?.NOMGEO || "";
+            municipiosIndex.set(name, layer);
+            layer.on("mouseover", () => highlightLayer(layer));
+            layer.on("mouseout", () => {
+              if (selectedMun === name) return;
+              resetLayerStyle(layer);
+            });
+            layer.on("click", () => clickMunicipio(feature));
+            layer.bindTooltip(name, { sticky: true, direction: "top" });
+          }
+        }).addTo(map);
+
+        // 2. Cargar Polígonos Reales
+        try {
+          const resPoly = await fetch(POLIGONOS_URL);
+          if (resPoly.ok) {
+            poligonosGeojson = await resPoly.json();
+            poligonosIndex.clear();
+            if (poligonosGeojson && poligonosGeojson.features) {
+              poligonosGeojson.features.forEach(f => {
+                const id = f.properties?.Pol;
+                if (id !== undefined) poligonosIndex.set(Number(id), f);
+              });
+            }
+            console.log(`Cargados ${poligonosIndex.size} polígonos reales.`);
+          }
+        } catch (ePoly) {
+          console.warn("No se pudieron cargar los polígonos reales:", ePoly);
+        }
+
+        // Poblar SELECT de municipios desde GeoJSON
+        if (geojson && geojson.features) {
+          const munNames = geojson.features
+            .map(f => f?.properties?.NOMGEO)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, "es"));
+
+          $("selMun").innerHTML =
+            `<option value="Todos">Todos</option>` +
+            munNames.map(n => `<option value="${String(n).replaceAll('"', '&quot;')}">${n}</option>`).join("");
+        }
+
+        stateBounds = geoLayer.getBounds();
+        if (selectedMun === "Todos" && isAllPolygonsValue(selectedPoly) && !selectedLoc) {
+          fitToState();
+        }
+        setLoading(false, "Mapa listo");
+      } catch (e) {
+        console.error("GeoJSON error:", e);
+        setLoading(false, "Error Mapa: " + e.message);
+      }
+    }
+
+    function paintSelectedMunicipio() {
+      if (!geoLayer) return;
+      geoLayer.eachLayer(l => geoLayer.resetStyle(l));
+
+      // EXCLUSIVIDAD: Solo resaltar según el filtro activo
+
+      // 1. Si hay polígono seleccionado, no resaltar municipios (el polígono se pinta en polyLayer)
+      if (selectedPoly && !isAllPolygonsValue(selectedPoly)) {
+        return;
+      }
+
+      // 2. Resaltar Municipio específico
+      if (selectedMun !== "Todos" && municipiosIndex.has(selectedMun)) {
+        highlightLayer(municipiosIndex.get(selectedMun));
+        return;
+      }
+
+      // 3. Resaltar Región (todos los municipios de la región)
+      if (selectedRegion !== "Todas las regiones") {
+        const polyIds = REGIONS_MAP[selectedRegion] || [];
+        const munToPoly = new Map();
+        (softrDataCache || []).forEach(d => {
+          if (d.NOM_MUN && d.Poligono) munToPoly.set(d.NOM_MUN, Number(d.Poligono));
+        });
+
+        municipiosIndex.forEach((layer, name) => {
+          const pId = munToPoly.get(name);
+          if (pId && polyIds.includes(pId)) {
+            highlightZoneLayer(layer);
+          }
+        });
+      }
+    }
+
+    function getConvexHull(points) {
+      if (points.length < 3) return points;
+      points.sort((a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]);
+      const upper = [];
+      for (let p of points) {
+        while (upper.length >= 2 && crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+        upper.push(p);
+      }
+      const lower = [];
+      for (let i = points.length - 1; i >= 0; i--) {
+        let p = points[i];
+        while (lower.length >= 2 && crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+        lower.push(p);
+      }
+      upper.pop();
+      lower.pop();
+      return upper.concat(lower);
+    }
+
+    function crossProduct(a, b, c) {
+      return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    }
+
+    function isPointInPolygon(point, polygon) {
+      const x = point[0], y = point[1];
+      let inside = false;
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+
+        // ✅ Inclusión de vértices y bordes (pequeño margen de error 1e-9)
+        if (Math.abs(x - xi) < 1e-9 && Math.abs(y - yi) < 1e-9) return true;
+
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    
+    function paintAllPolygons() {
+      polyLayer.clearLayers();
+      if (!poligonosGeojson || !poligonosGeojson.features || poligonosGeojson.features.length === 0) return;
+
+      // Dibujar TODOS los polígonos sin bloquear la interacción del resto de capas
+      L.geoJSON(poligonosGeojson, {
+        interactive: false, // ✅ No intercepta hover/click de municipios/localidades
+        style: {
+          fillColor: "#bc9b73",
+          fillOpacity: 0.25,
+          color: "#78350f",
+          weight: 2,
+          pane: "polygonsPane"
+        }
+      }).addTo(polyLayer);
+    }
+
+function paintSelectedPolygon(rows) {
+      polyLayer.clearLayers();
+      if (isAllPolygonsValue(selectedPoly)) { paintAllPolygons(); return; }
+
+      const polyId = Number(selectedPoly);
+      const feature = poligonosIndex.get(polyId);
+
+      if (feature) {
+        // ✅ USAR GEOMETRÍA REAL DEL GEOJSON
+        const layer = L.geoJSON(feature, {
+          interactive: false,
+          style: {
+            fillColor: "#bc9b73",
+            fillOpacity: 0.90, // ✅ Máxima opacidad
+            color: "#78350f",
+            weight: 4,         // ✅ Más grosor
+            pane: 'polygonsPane'
+          }
+        }).addTo(polyLayer);
+        map.fitBounds(layer.getBounds(), { padding: [30, 30] });
+      } else {
+        // Fallback: Convex Hull si no está en el GeoJSON
+        const points = rows
+          .map(r => [parseCoord(r.Latitud), parseCoord(r.Longitud)])
+          .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+        if (points.length === 0) return;
+
+        const hull = getConvexHull(points);
+        const polygon = L.polygon(hull, {
+          fillColor: "#bc9b73",
+          fillOpacity: 0.35,
+          color: "#78350f",
+          weight: 3
+        }).addTo(polyLayer);
+
+        map.fitBounds(polygon.getBounds(), { padding: [30, 30] });
+      }
+    }
+
+    async function fetchFromSoftr() {
+      if (softrDataCache) return softrDataCache;
+      if (softrLoadingPromise) return softrLoadingPromise;
+
+      softrLoadingPromise = (async () => {
+        const url = `https://tables-api.softr.io/api/v1/databases/${SOFTR_DB_ID}/tables/${SOFTR_TABLE_ID}/records?limit=250`;
+
+        try {
+          console.log("Intentando conectar con Softr API...");
+          setLoading(true, "Conectando a Softr...");
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const resp = await fetch(url, {
+            method: 'GET',
+            headers: {
+              "Softr-Api-Key": SOFTR_API_KEY,
+              "Accept": "application/json"
+            },
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          if (!resp.ok) throw new Error(`API ${resp.status}`);
+
+          const json = await resp.json();
+          return processSoftrData(json.data);
+
+        } catch (e) {
+          console.warn("API fallida/bloqueada. Intentando fallback local...");
+
+          try {
+            setLoading(true, "Cargando datos locales...");
+            const localResp = await fetch('./softr_data.json');
+            if (localResp.ok) {
+              const localJson = await localResp.json();
+              setLoading(false, "Modo Offline");
+              return processSoftrData(localJson.data);
+            }
+          } catch (localErr) {
+            console.error("No se pudo cargar softr_data.json");
+          }
+
+          if (e.message.includes("Failed to fetch") || e.name === "AbortError") {
+            document.getElementById("corsBanner").style.display = "block";
+            setLoading(false, "ERROR CORS");
+          } else {
+            setLoading(false, "Error: " + e.message);
+          }
+          throw e;
+        } finally {
+          softrLoadingPromise = null;
+        }
+      })();
+
+      return softrLoadingPromise;
+    }
+
+    function processSoftrData(data) {
+      if (!data) return [];
+      softrDataCache = data.map(item => {
+        const row = { id: item.id };
+        const fields = item.fields || {};
+        for (const [sId, appKey] of Object.entries(SOFTR_FIELD_MAP)) {
+          let val = fields[sId];
+          if (val && typeof val === 'object' && val.label) val = val.label;
+          row[appKey] = val;
+        }
+        return row;
+      });
+      return softrDataCache;
+    }
+
+    function filterData(data) {
+      if (!data) return [];
+
+      // FILTROS GEOGRÁFICOS
+
+      // 1. Polígono + Localidad (Interacción especial)
+      if (selectedLoc && selectedPoly && !isAllPolygonsValue(selectedPoly)) {
+        return data.filter(r => {
+          if (r.NOMGEO !== selectedLoc) return false;
+          return String(r.Poligono) === selectedPoly;
+        });
+      }
+
+      // 2. Solo Localidad
+      if (selectedLoc) {
+        return data.filter(r => r.NOMGEO === selectedLoc);
+      }
+
+      // 3. Solo Polígono
+      if (selectedPoly && !isAllPolygonsValue(selectedPoly)) {
+        const polyPoints = data
+          .filter(r => String(r.Poligono) === selectedPoly)
+          .map(r => [parseCoord(r.Latitud), parseCoord(r.Longitud)])
+          .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+
+        let currentHull = null;
+        if (polyPoints.length >= 3) currentHull = getConvexHull(polyPoints);
+        else if (polyPoints.length > 0) currentHull = polyPoints;
+
+        return data.filter(r => {
+          if (String(r.Poligono) === selectedPoly) return true;
+          if (currentHull && currentHull.length >= 3) {
+            const lat = parseCoord(r.Latitud);
+            const lng = parseCoord(r.Longitud);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              return isPointInPolygon([lat, lng], currentHull);
+            }
+          }
+          return false;
+        });
+      }
+
+      // 4. Municipio
+      if (selectedMun && selectedMun !== "Todos") {
+        return data.filter(r => (r.NOM_MUN || "").trim() === selectedMun.trim());
+      }
+
+      // 5. Región
+      if (selectedRegion && selectedRegion !== "Todas las regiones") {
+        const ids = REGIONS_MAP[selectedRegion] || [];
+        return data.filter(r => ids.includes(Number(r.Poligono)));
+      }
+
+      // 6. Buscador
+      if (searchText && searchText.trim().length >= 2) {
+        const st = searchText.trim().toLowerCase();
+        return data.filter(r => (r.NOMGEO && r.NOMGEO.toLowerCase().includes(st)));
+      }
+
+      return data;
+    }
+
+
+    async function fetchLocalidadesForSelect() {
+      // ✅ Incluir selectedRegion en la condición para poblar si hay cualquier filtro de grupo activo
+      if ((!selectedMun || selectedMun === "Todos") &&
+        (isAllPolygonsValue(selectedPoly)) &&
+        (selectedRegion === "Todas las regiones")) {
+        $("selLoc").innerHTML = `<option value="">—</option>`;
+        return;
+      }
+
+      setLoading(true, "Cargando localidades...");
+      const all = await fetchFromSoftr();
+
+      // ✅ Usar filterData pero SIN el filtro de localidad para ver todo el grupo
+      const savedLoc = selectedLoc;
+      selectedLoc = "";
+      const data = filterData(all);
+      selectedLoc = savedLoc;
+
+      const uniq = [...new Set((data || []).map(r => r.NOMGEO).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "es"));
+
+      $("selLoc").innerHTML = `<option value="">Seleccionar Localidad...</option>` + uniq.map(n =>
+        `<option value="${String(n).replaceAll('"', '&quot;')}">${n}</option>`
+      ).join("");
+
+      if (selectedLoc) $("selLoc").value = selectedLoc;
+      setLoading(false, "Actualizado");
+    }
+
+    async function fetchPolygonsForSelect() {
+      const all = await fetchFromSoftr();
+
+      // Mapear ID -> Municipio (usar el primero que aparezca)
+      const polyMap = new Map();
+      all.forEach(r => {
+        const id = Number(r.Poligono);
+        if (id) {
+          if (!polyMap.has(id)) {
+            let name = r.NOM_MUN || "S/N";
+            // ✅ CORRECCIONES MANUALES DE CONSISTENCIA GEOJSON
+            if (id === 18) name = "Yecapixtla";
+            if (id === 19) name = "Zacatepec";
+            if (id === 6) name = "Huitzilac";
+            if (id === 20) name = "Tlalnepantla";
+
+            polyMap.set(id, name);
+          }
+        }
+      });
+
+      const sortedIds = Array.from(polyMap.keys()).sort((a, b) => a - b);
+
+      $("selPoly").innerHTML = `<option value="Todos los Polígonos">Todos los Polígonos</option>` +
+        sortedIds.map(id => {
+          const mun = polyMap.get(id);
+          return `<option value="${id}">Polígono ${id} (${mun})</option>`;
+        }).join("");
+    }
+
+    async function fetchRowsForKPIs() {
+      const all = await fetchFromSoftr();
+      return filterData(all);
+    }
+
+    async function fetchRowsForTable() {
+      const all = await fetchFromSoftr();
+      let rows = filterData(all);
+
+      // Sort by indicator if numeric
+      if (!["GM_2020_y"].includes(indicator)) {
+        rows.sort((a, b) => (Number(b[indicator]) || 0) - (Number(a[indicator]) || 0));
+      }
+
+      return rows;
+    }
+
+    async function fetchRowsForMap() {
+      const all = await fetchFromSoftr();
+
+      // ✅ IMPORTANTE:
+      // Si hay un Polígono activo y se selecciona una Localidad, NO debemos
+      // filtrar los puntos del mapa por localidad; solo hacemos zoom/highlight.
+      // Esto mantiene visibles todas las localidades del polígono para poder
+      // seleccionar otra sin "desaparecer" los demás puntos.
+      let rows;
+      if (!isAllPolygonsValue(selectedPoly) && selectedLoc) {
+        const savedLoc = selectedLoc;
+        selectedLoc = "";
+        rows = filterData(all);
+        selectedLoc = savedLoc;
+      } else {
+        rows = filterData(all);
+      }
+
+      // No limit in Softr since dataset is small, but we can respect app logic
+      if (mode === "loc" && selectedMun === "Todos") {
+        if (!["GM_2020_y"].includes(indicator)) {
+          rows.sort((a, b) => (Number(b[indicator]) || 0) - (Number(a[indicator]) || 0));
+        }
+      }
+
+      return rows;
+    }
+
+    function renderMapLocalidades(rows) {
+      clearMarkers();
+
+      const seen = new Set();
+
+      for (const r of rows) {
+        const mun = r.NOM_MUN ?? "";
+        const loc = r.NOMGEO ?? "";
+        const key = mun + "||" + loc;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const lat = parseCoord(r.Latitud);
+        const lng = parseCoord(r.Longitud);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+        const marker = L.circleMarker([lat, lng], {
+          radius: 6,
+          weight: 1,
+          color: "#111827",
+          fillColor: "rgba(188,155,115,.55)",
+          fillOpacity: 0.75,
+          pane: 'markersPane' // ✅ Asignar a pane de marcadores
+        });
+
+        marker.bindTooltip(loc, { sticky: true });
+
+        marker.on("click", async () => {
+          if (selectedLoc === loc) {
+            selectedLoc = "";
+            $("selLoc").value = "";
+          } else {
+            selectedLoc = loc;
+            $("selLoc").value = selectedLoc;
+          }
+          setMode("loc");
+          await refreshAll();
+        });
+
+        marker.addTo(localidadesLayer);
+      }
+    }
+
+    function setMarkersInteractivity() {
+      if (!map) return;
+      const pane = map.getPane('markersPane');
+      if (!pane) return;
+      // En modo "mun" NO mostramos ni permitimos interacción de marcadores,
+      // para que los municipios permanezcan siempre clicables (sin bloquear).
+      if (mode === "mun") {
+        pane.style.pointerEvents = "none";
+        clearMarkers();
+        if (selectedLocLayer) selectedLocLayer.clearLayers();
+      } else {
+        pane.style.pointerEvents = "auto";
+      }
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      $("btnModeMun").classList.toggle("active", mode === "mun");
+      $("btnModeLoc").classList.toggle("active", mode === "loc");
+
+      setMarkersInteractivity();
+      setTimeout(() => map.invalidateSize(true), 60);
+      refreshMapOnly();
+    }
+
+    async function refreshMapOnly() {
+      // 1. VISUAL UPDATES (Immediate)
+      paintSelectedMunicipio();
+      selectedLocLayer.clearLayers();
+
+      // ✅ Mantener siempre interactiva la capa de municipios:
+      // En modo municipios NO renderizamos marcadores (localidades), porque pueden
+      // bloquear el click/hover sobre los polígonos.
+      setMarkersInteractivity();
+
+      // Enfoque inmediato (si no hay localidad seleccionada)
+      if (!selectedLoc) {
+        if (!isAllPolygonsValue(selectedPoly) && poligonosIndex.has(Number(selectedPoly))) {
+          const feat = poligonosIndex.get(Number(selectedPoly));
+          map.fitBounds(L.geoJSON(feat).getBounds(), { padding: [40, 40] });
+        }
+        else if (selectedMun !== "Todos") {
+          fitToMunicipio(selectedMun);
+        }
+        else if (selectedRegion !== "Todas las regiones") {
+          fitToZoneRegion(selectedRegion);
+        }
+        else {
+          fitToState();
+        }
+      }
+
+      // =========================
+      // MODO MUNICIPIOS
+      // =========================
+      if (mode === "mun") {
+        // Nunca dibujamos marcadores en modo municipios (para no bloquear interacción).
+        clearMarkers();
+
+        // Polígono seleccionado (si aplica) se pinta sin depender de marcadores.
+        if (!isAllPolygonsValue(selectedPoly)) {
+          setLoading(true, "Actualizando polígono...");
+          const rows = await fetchRowsForMap();
+          paintSelectedPolygon(rows);
+          setLoading(false, "Actualizado");
+        } else {
+          paintAllPolygons();
+        }
+        return;
+      }
+
+      // =========================
+      // MODO LOCALIDADES
+      // =========================
+      setLoading(true, "Actualizando mapa...");
+      const rows = await fetchRowsForMap();
+
+      // Marcadores (solo en modo loc)
+      renderMapLocalidades(rows);
+
+      if (!isAllPolygonsValue(selectedPoly)) {
+        paintSelectedPolygon(rows);
+      } else {
+          paintAllPolygons();
+        }
+
+      // Ubicación de localidad (si existe)
+      if (selectedLoc) {
+        const target = rows.find(r => String(r.NOMGEO).trim() === selectedLoc.trim());
+        if (target) {
+          const lat = parseCoord(target.Latitud);
+          const lng = parseCoord(target.Longitud);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            L.circleMarker([lat, lng], {
+              radius: 10,
+              weight: 4,
+              color: "#78350f",
+              fillColor: "#f59e0b",
+              fillOpacity: 1,
+              pane: "markersPane"
+            }).addTo(selectedLocLayer)
+              .bindTooltip("<b>" + target.NOMGEO + "</b>", {
+                permanent: true,
+                direction: "top",
+                className: "highlight-tooltip",
+                offset: [0, -10]
+              });
+
+            map.setView([lat, lng], 15);
+          }
+        }
+      }
+
+      setLoading(false, "Actualizado");
+    }
+
+    /***********************
+     * RENDER KPI + TABLE
+     ***********************/
+    async function renderSummary() {
+      const data = await fetchFromSoftr();
+      // Campos informativos derivados
+      let infoZone = selectedRegion;
+      let infoMun = selectedMun;
+      let infoPoly = (selectedPoly && !isAllPolygonsValue(selectedPoly)) ? `ID: ${selectedPoly}` : "—";
+      let infoLoc = selectedLoc || "—";
+      let infoProm = "—";
+      let infoCoord = "—";
+
+      // ✅ DETERMINAR CONTEXTO POR LOCALIDAD (Solo para visualización)
+      if (selectedLoc) {
+        const rec = (data || []).find(r => r.NOMGEO === selectedLoc);
+        if (rec) {
+          infoMun = rec.NOM_MUN || infoMun;
+          infoPoly = rec.Poligono ? `Polígono ${rec.Poligono}` : infoPoly;
+
+          for (const [z, ids] of Object.entries(REGIONS_MAP)) {
+            if (ids.includes(Number(rec.Poligono))) {
+              infoZone = z;
+              break;
+            }
+          }
+          infoProm = rec.Promotor || rec.PROMOTOR || "—";
+          infoCoord = rec.Coordinador || rec.COORDINADOR || "—";
+        }
+      } else if (selectedMun !== "Todos") {
+        const rec = (data || []).find(r => r.NOM_MUN === selectedMun);
+        if (rec) {
+          infoPoly = rec.Poligono ? `Polígono ${rec.Poligono}` : infoPoly;
+          for (const [z, ids] of Object.entries(REGIONS_MAP)) {
+            if (ids.includes(Number(rec.Poligono))) { infoZone = z; break; }
+          }
+        }
+      }
+
+      $("sumZone").textContent = infoZone;
+      $("sumMun").textContent = infoMun;
+      $("sumPoly").textContent = infoPoly;
+      $("sumLoc").textContent = infoLoc;
+      $("sumProm").textContent = infoProm;
+      $("sumCoord").textContent = infoCoord;
+    }
+
+    function renderKPIs(rows) {
+      let S = {
+        POB1: 0, POB42: 0, POB84: 0,
+        VIV0: 0, VIV7: 0, VIV10: 0,
+        AFRO1: 0, DISC4: 0, DISC5: 0, DISC6: 0,
+        GM_2020_y: null, IMN_2020_y: 0
+      };
+
+      // Para GM_2020_y: si hay varias localidades, mostramos el más frecuente
+      const gmCount = new Map();
+
+      for (const r of rows) {
+        S.POB1 += safeNum(r.POB1);
+        S.POB42 += safeNum(r.POB42);
+        S.POB84 += safeNum(r.POB84);
+
+        S.VIV0 += safeNum(r.VIV0);
+        S.VIV7 += safeNum(r.VIV7);
+        S.VIV10 += safeNum(r.VIV10);
+
+        S.AFRO1 += safeNum(r.AFRO1);
+        S.DISC4 += safeNum(r.DISC4);
+        S.DISC5 += safeNum(r.DISC5);
+        S.DISC6 += safeNum(r.DISC6);
+
+        const gm = r.GM_2020_y;
+        if (gm) {
+          gmCount.set(gm, (gmCount.get(gm) || 0) + 1);
+        }
+
+        S.IMN_2020_y += safeNum(r.IMN_2020_y);
+      }
+
+      // GM_2020_y más común
+      let gmTop = "—";
+      let best = -1;
+      for (const [k, v] of gmCount.entries()) {
+        if (v > best) {
+          best = v;
+          gmTop = k;
+        }
+      }
+
+      $("kPOB1").textContent = fmt(S.POB1);
+      $("kPOB42").textContent = fmt(S.POB42);
+      $("kPOB84").textContent = fmt(S.POB84);
+
+      $("pPOB1").textContent = "(100%)";
+      $("pPOB42").textContent = pct(S.POB42, S.POB1);
+      $("pPOB84").textContent = pct(S.POB84, S.POB1);
+
+      $("kVIV0").textContent = fmt(S.VIV0);
+      $("kVIV7").textContent = fmt(S.VIV7);
+      $("kVIV10").textContent = fmt(S.VIV10);
+
+      $("pVIV0").textContent = "(100%)";
+      $("pVIV7").textContent = pct(S.VIV7, S.VIV0);
+      $("pVIV10").textContent = pct(S.VIV10, S.VIV0);
+
+      $("kGM2020").textContent = gmTop;
+      $("kIMN2020").textContent = fmt(S.IMN_2020_y);
+
+      $("kAFRO1").textContent = fmt(S.AFRO1);
+      $("kDISC4").textContent = fmt(S.DISC4);
+      $("kDISC5").textContent = fmt(S.DISC5);
+      $("kDISC6").textContent = fmt(S.DISC6);
+
+      $("pAFRO1").textContent = pct(S.AFRO1, S.POB1);
+      $("pDISC4").textContent = pct(S.DISC4, S.POB1);
+      $("pDISC5").textContent = pct(S.DISC5, S.POB1);
+      $("pDISC6").textContent = pct(S.DISC6, S.POB1);
+
+      // Indicador seleccionado (solo referencia visual)
+      $("kSelectedIndCode").textContent = indicator;
+      $("kSelectedInd").textContent = indLabel(indicator);
+    }
+
+    function renderTable(rows) {
+      $("filteredHint").textContent = `${rows.length} filas filtradas`;
+      $("tableMeta").textContent = `${rows.length} filas (mostrando ${Math.min(rows.length, MAX_TABLE_ROWS)})`;
+
+      $("thInd").textContent = indLabel(indicator);
+      $("indName").textContent = indicator;
+
+      const sliced = rows.slice(0, MAX_TABLE_ROWS);
+
+      const tb = sliced.map(r => {
+        const v = r[indicator];
+        const shown = (indicator === "GM_2020_y") ? (v || "—") : fmt(Number(v));
+        return `
+        <tr>
+          <td>${r.NOM_MUN ?? "—"}</td>
+          <td>${r.NOMGEO ?? "—"}</td>
+          <td><b>${shown}</b></td>
+        </tr>
+      `;
+      }).join("");
+
+      $("tbody").innerHTML = tb || `<tr><td colspan="3" style="color:#6B7280; padding:14px;">Sin resultados</td></tr>`;
+    }
+
+    /***********************
+     * REFRESH ALL
+     ***********************/
+    async function refreshAll() {
+      try {
+        console.log("Ejecutando refreshAll...");
+        setLoading(true, "Actualizando...");
+        paintSelectedMunicipio();
+        renderSummary();
+
+        if ($("selPoly").options.length <= 1) {
+          await fetchPolygonsForSelect();
+        }
+        await fetchLocalidadesForSelect();
+
+        console.log("Cargando KPIs...");
+        const kpiRows = await fetchRowsForKPIs();
+        renderKPIs(kpiRows);
+
+        console.log("Cargando Tabla...");
+        const tableRows = await fetchRowsForTable();
+        renderTable(tableRows);
+
+        console.log("Cargando Mapa...");
+        await refreshMapOnly();
+
+        setLoading(false, "Actualizado");
+        console.log("Sincronización completa.");
+      } catch (e) {
+        console.error("Fallo general en refreshAll:", e);
+        setLoading(false, "ERROR: " + e.message);
+        // Alert only if it's a critical infrastructure failure
+        if (e.message.includes("Bloqueado")) {
+          alert("ERROR DE SEGURIDAD: El navegador bloqueó la conexión a Softr. Intenta abrir el archivo desde un servidor web real o revisa la consola.");
+        }
+      }
+    }
+
+    /***********************
+     * EVENTS
+     ***********************/
+    $("btnReload").addEventListener("click", () => refreshAll());
+
+    $("btnPDF").addEventListener("click", () => {
+      // ✅ PDF profesional con estilos print (sin mapa)
+      // Nota: para quitar "localhost..." en el PDF, desactiva "Encabezados y pies de página" en Imprimir.
+      window.print();
+    });
+
+    $("selZone").addEventListener("change", async (e) => {
+      selectedRegion = e.target.value;
+      // ✅ EXCLUSIVIDAD: Limpiar todos los demás filtros geográficos
+      selectedPoly = "Todos los polígonos";
+      $("selPoly").value = "Todos los polígonos";
+      selectedMun = "Todos";
+      $("selMun").value = "Todos";
+      selectedLoc = "";
+      $("selLoc").value = "";
+      $("txtSearch").value = "";
+      searchText = "";
+
+      if (selectedRegion === "Todas las regiones") {
+        fitToState();
+      } else {
+        setMode("mun");
+        fitToZoneRegion(selectedRegion);
+      }
+      await refreshAll();
+    });
+
+    $("selPoly").addEventListener("change", async (e) => {
+      selectedPoly = e.target.value;
+      // ✅ EXCLUSIVIDAD: Limpiar Region y Municipio, pero MANTENER Localidad (pueden interactuar)
+      selectedRegion = "Todas las regiones";
+      $("selZone").value = "Todas las regiones";
+      selectedMun = "Todos";
+      $("selMun").value = "Todos";
+      // NO limpiar selectedLoc - permite Polígono + Localidad
+      $("txtSearch").value = "";
+      searchText = "";
+
+      if (isAllPolygonsValue(selectedPoly)) {
+        fitToState();
+      } else {
+        setMode("loc");
+      }
+      await refreshAll();
+    });
+
+    $("selMun").addEventListener("change", async (e) => {
+      selectedMun = e.target.value;
+      // ✅ EXCLUSIVIDAD: Limpiar todos los demás filtros geográficos
+      selectedRegion = "Todas las regiones";
+      $("selZone").value = "Todas las regiones";
+      selectedPoly = "Todos los polígonos";
+      $("selPoly").value = "Todos los polígonos";
+      selectedLoc = "";
+      $("selLoc").value = "";
+      $("txtSearch").value = "";
+      searchText = "";
+
+      if (selectedMun === "Todos") {
+        fitToState();
+      } else {
+        setMode("mun");
+        fitToMunicipio(selectedMun);
+      }
+      await refreshAll();
+    });
+
+    $("selLoc").addEventListener("change", async (e) => {
+      selectedLoc = e.target.value;
+      // ✅ SE MANTIENE EL CONTEXTO: no limpiamos Municipio/Región para que el listado de localidades persista
+      if (selectedLoc) {
+        setMode("loc");
+      }
+      await refreshAll();
+    });
+
+    $("selInd").addEventListener("change", async (e) => {
+      indicator = e.target.value;
+      $("indName").textContent = indicator;
+      await refreshAll();
+    });
+
+    $("txtSearch").addEventListener("input", (e) => {
+      searchText = e.target.value || "";
+      clearTimeout(window.__tSearch);
+      window.__tSearch = setTimeout(() => refreshAll(), 250);
+    });
+
+    $("btnModeMun").addEventListener("click", () => setMode("mun"));
+    $("btnModeLoc").addEventListener("click", () => setMode("loc"));
+
+    $("btnClear").addEventListener("click", () => {
+      selectedRegion = "Todas las regiones";
+      $("selZone").value = "Todas las regiones";
+      selectedMun = "Todos";
+      selectedPoly = "Todos los polígonos";
+      selectedLoc = "";
+      $("selMun").value = "Todos";
+      $("selPoly").value = "Todos los polígonos";
+      $("selLoc").innerHTML = `<option value="">—</option>`;
+      $("txtSearch").value = "";
+      searchText = "";
+      fitToState();
+      refreshAll();
+    });
+
+    /***********************
+     * START
+     ***********************/
+    async function boot() {
+      try {
+        console.log("Iniciando boot...");
+        initMap();
+        setMarkersInteractivity();
+
+        // Carga GeoJSON y Datos en paralelo pero con manejo individual
+        loadGeoJSON().then(() => {
+          console.log("Mapa cargado (GeoJSON).");
+        }).catch(e => {
+          console.error("Error al cargar mapa en boot:", e);
+        });
+
+        // Solo procedemos con el refresh general si el mapa básico existe
+        renderSummary();
+        refreshAll().catch(e => {
+          console.error("Error al refrescar datos en boot:", e);
+        });
+
+      } catch (e) {
+        console.error("Boot error:", e);
+        setLoading(false, "Error Fatal: " + e.message);
+      }
+    }
+
+    boot();
+  </script>
+
+</body>
+
+</html>
