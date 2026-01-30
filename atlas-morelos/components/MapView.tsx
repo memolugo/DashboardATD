@@ -9,7 +9,7 @@ interface MapViewProps {
   isLoading: boolean;
 }
 
-// Ruta ajustada a la estructura de carpetas actual en el repo
+// Ruta absoluta en GitHub para asegurar que cargue independientemente del entorno
 const PRIMARY_GEOJSON_URL = 'https://raw.githubusercontent.com/memolugo/DashboardATD/main/atlas-morelos/MorelosgeosonEPSG4326.geojson';
 const FALLBACK_GEOJSON_URL = 'https://raw.githubusercontent.com/angelnmara/geojson-mexico/master/estados/Morelos.geojson';
 
@@ -74,6 +74,7 @@ const MapView: React.FC<MapViewProps> = ({ markers, selectedMarkerId, onMarkerCl
       const response = await fetch(url);
       if (!response.ok) throw new Error('Error al cargar GeoJSON');
       const text = await response.text();
+      // Limpiar BOM si existe
       return JSON.parse(text.trim().replace(/^\uFEFF/, ''));
     };
 
@@ -94,6 +95,9 @@ const MapView: React.FC<MapViewProps> = ({ markers, selectedMarkerId, onMarkerCl
 
     const renderGeoJSON = (data: any) => {
       if (mapInstanceRef.current) {
+        if (geoJsonLayerRef.current) {
+          mapInstanceRef.current.removeLayer(geoJsonLayerRef.current);
+        }
         geoJsonLayerRef.current = L.geoJSON(data, {
           style: {
             color: '#8c3154',
@@ -139,9 +143,6 @@ const MapView: React.FC<MapViewProps> = ({ markers, selectedMarkerId, onMarkerCl
           <p style="margin: 0; font-size: 8px; font-weight: 800; color: #8c3154; text-transform: uppercase; letter-spacing: 1.2px;">${m.secretaria_organo}</p>
           <h4 style="margin: 8px 0; font-size: 14px; font-weight: 800; color: #111; line-height: 1.3;">${m.dependencia_entidad_adscrita}</h4>
           <p style="margin: 0; font-size: 11px; color: #555; font-weight: 400; line-height: 1.4;">${m.ubicacion_1}</p>
-          <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 8px;">
-             <p style="margin: 0; font-size: 10px; font-weight: 700; color: #2E3B2B;">Horario: <span style="font-weight: 400; color: #666;">${m.horario || 'No especificado'}</span></p>
-          </div>
         </div>
       `, { closeButton: false, className: 'atlas-popup', offset: [0, -10] })
       .on('click', () => onMarkerClick(m));
@@ -175,13 +176,11 @@ const MapView: React.FC<MapViewProps> = ({ markers, selectedMarkerId, onMarkerCl
         </div>
       )}
 
-      {/* Botón Reset View */}
       <button 
         onClick={() => {
           if (geoJsonLayerRef.current) mapInstanceRef.current?.fitBounds(geoJsonLayerRef.current.getBounds(), { padding: [40, 40] });
         }}
-        title="Centrar mapa en Morelos"
-        className="absolute top-6 right-6 z-[1000] bg-white shadow-2xl p-3.5 rounded-2xl hover:scale-110 hover:bg-gray-50 active:scale-95 transition-all text-gray-700 border border-gray-100"
+        className="absolute top-6 right-6 z-[1000] bg-white shadow-2xl p-3.5 rounded-2xl hover:scale-110 active:scale-95 transition-all text-gray-700 border border-gray-100"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><circle cx="12" cy="11" r="3" strokeWidth="2.5" /></svg>
       </button>
