@@ -1,7 +1,0 @@
-{
-  "name": "ATLAS MORELOS",
-  "description": "Una réplica exacta del portal de servicios digitales del Estado de Morelos, incluyendo navegación lateral, mapa interactivo y pie de página institucional.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
-}
