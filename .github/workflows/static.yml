@@ -30,9 +30,10 @@ jobs:
     node-version: 20
 
 
-      - name: Install dependencies
+      -  name: Install dependencies
   working-directory: atlas-morelos
-  run: npm install
+  run: npm install --legacy-peer-deps
+
 
       - name: Build
         working-directory: atlas-morelos
