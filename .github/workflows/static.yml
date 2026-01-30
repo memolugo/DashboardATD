@@ -27,12 +27,16 @@ jobs:
      - name: Setup Node
   uses: actions/setup-node@v4
   with:
-    node-version: 20
+    node-version: 22
 
-
-      -  name: Install dependencies
+- name: Remove lockfile (CI)
   working-directory: atlas-morelos
-  run: npm install --legacy-peer-deps
+  run: rm -f package-lock.json
+
+      -  - name: Install dependencies
+  working-directory: atlas-morelos
+  run: npm install --legacy-peer-deps --no-audit --no-fund
+
 
 
       - name: Build
