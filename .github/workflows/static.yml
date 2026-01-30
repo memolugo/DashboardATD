@@ -24,20 +24,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-     - name: Setup Node
-  uses: actions/setup-node@v4
-  with:
-    node-version: 22
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-- name: Remove lockfile (CI)
-  working-directory: atlas-morelos
-  run: rm -f package-lock.json
+      - name: Remove lockfile (CI)
+        working-directory: atlas-morelos
+        run: rm -f package-lock.json
 
-      -  - name: Install dependencies
-  working-directory: atlas-morelos
-  run: npm install --legacy-peer-deps --no-audit --no-fund
-
-
+      - name: Install dependencies
+        working-directory: atlas-morelos
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Build
         working-directory: atlas-morelos
